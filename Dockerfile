@@ -14,6 +14,7 @@ RUN apt-get update && \
     cmake \
     git \
     vim \
+	neovim \
     nano && \
     rm -rf /var/lib/apt/lists/*
     
