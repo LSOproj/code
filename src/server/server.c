@@ -21,13 +21,14 @@ int main(){
 	socklen_t server_address_len = sizeof(server_address);
 
 	server_address.sun_family = AF_LOCAL;
-	strcpy(server_address.sun_path, "/sockets/server_socket");
+	strcpy(server_address.sun_path, "/tmp/server_socket");
 
 	if((server_socket = socket(PF_LOCAL, SOCK_STREAM, 0)) < 0)
 		error_handler("[SERVER] Errore creazione socket");
 
 	printf("\n[SERVER] Successo socket create.\n");
 
+	unlink(server_address.sun_path);
 	if(bind(server_socket, (struct sockaddr *) &server_address, server_address_len) < 0)
 		error_handler("[SERVER] Errore bind socket");
 
