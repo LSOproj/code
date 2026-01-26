@@ -20,9 +20,9 @@ int main(){
 	socklen_t server_address_len = sizeof(server_address);
 
 	server_address.sun_family = AF_LOCAL;
-	// /sockets/sever_socket socket locale del server a cui
+	// /tmp/sever_socket socket locale del server a cui
 	// il client si connette
-	strcpy(server_address.sun_path, "/sockets/server_socket");
+	strcpy(server_address.sun_path, "/tmp/server_socket");
 
 	if((client_socket = socket(PF_LOCAL, SOCK_STREAM, 0)) < 0){
 		perror("[CLIENT] Impossibile aprire la socket!\n");
