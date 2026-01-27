@@ -1,7 +1,7 @@
 server:
 	gcc ./src/server/server.c -o ./src/server/server
 
-server:
+client:
 	gcc ./src/client/client.c -o ./src/client/client -lsqlite3
 
 clear:
