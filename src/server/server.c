@@ -197,6 +197,28 @@ int main(){
 	return 0;
 }
 
+//threads
+void* connection_handler(void* client_socket_arg){
+	
+	printf("\n[SERVER] Assegnato il thread %d al client.\n", (int)pthread_self());
+
+	pthread_detach(pthread_self());
+
+	int client_socket = *(int*)client_socket_arg;
+	free(client_socket_arg);
+
+	//codice da rimuovere
+	char message[100] = "\nBenvenuto nel server!\0\n";
+	ssize_t bytes_read;
+
+	if((bytes_read = write(client_socket, message, 100)) < 0)
+		error_handler("[SERVER] Errore write");
+
+	close(client_socket);
+
+	pthread_exit(NULL);
+}
+
 //gestione aggiunte liste
 int add_user_to_user_list(int id, char *username, char *password){
 
@@ -624,28 +646,6 @@ void database_reservation_add_due_date(sqlite3* database, int reservation_id) {
 	}
 	
 	sqlite3_finalize(prepared);
-}
-
-//threads
-void* connection_handler(void* client_socket_arg){
-	
-	printf("\n[SERVER] Assegnato il thread %d al client.\n", (int)pthread_self());
-	
-	pthread_detach((int)pthread_self());
-
-	int client_socket = *(int*)client_socket_arg;
-	free(client_socket_arg);
-
-	//codice da rimuovere
-	char message[100] = "\nBenvenuto nel server!\0\n";
-	ssize_t bytes_read;
-
-	if((bytes_read = write(client_socket, message, 100)) < 0)
-		error_handler("[SERVER] Errore write");
-
-	close(client_socket);
-
-	pthread_exit(NULL);
 }
 
 void error_handler(char *message){
