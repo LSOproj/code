@@ -44,10 +44,26 @@ typedef struct reservation {
 } reservation; 
 
 void error_handler(char *message);
+
+//database connection
 void database_connection_init(sqlite3** database);
+
+//database init tables
 void database_user_table_init(sqlite3* database);
 void database_film_table_init(sqlite3* database);
 void database_reservation_table_init(sqlite3* database);
+
+//database inserts
+void database_user_insert(sqlite3* database, user* user_to_insert);
+void database_film_insert(sqlite3* database, film* film_to_insert);
+void database_reservation_insert(sqlite3* database, reservation* reservation_to_insert);
+
+//database update
+void database_film_add_rented_out_copy(sqlite3* database, int film_id);
+void database_film_remove_rented_out_copy(sqlite3* database, int film_id);
+void database_reservation_add_due_date(sqlite3* database, int reservation_id);
+
+//miscellous
 void* connection_handler(void* arg);
 
 int main(){
@@ -136,6 +152,7 @@ void* connection_handler(void* client_socket_arg){
 	pthread_exit(NULL);
 }
 
+//creazione tabelle database
 void database_connection_init(sqlite3 **database){
 
 	if(sqlite3_open("database.db", database) != 0){
@@ -153,8 +170,10 @@ void database_user_table_init(sqlite3* database){
 		"password VARCHAR NOT NULL"
 		");";
 		
-	if(sqlite3_exec(database, statement_sql, 0, 0, NULL) != 0)
+	if(sqlite3_exec(database, statement_sql, 0, 0, NULL) != 0){
+		sqlite3_close(database);
 		error_handler("[SERVER] Errore creazione USER table sqlite");
+	}
 }
 
 void database_film_table_init(sqlite3* database){
@@ -167,8 +186,10 @@ void database_film_table_init(sqlite3* database){
 		"rented_out_copies INTEGER NOT NULL DEFAULT 0"
 		");";
 		
-	if(sqlite3_exec(database, statement_sql, 0, 0, NULL) != 0)
+	if(sqlite3_exec(database, statement_sql, 0, 0, NULL) != 0){
+		sqlite3_close(database);
 		error_handler("[SERVER] Errore creazione FILM table sqlite");
+	}
 }
 
 void database_reservation_table_init(sqlite3* database){
@@ -184,8 +205,152 @@ void database_reservation_table_init(sqlite3* database){
         	"FOREIGN KEY (film_id) REFERENCES FILM(id)"
         	");";
 		
-	if(sqlite3_exec(database, statement_sql, 0, 0, NULL) != 0)
+	if(sqlite3_exec(database, statement_sql, 0, 0, NULL) != 0){
+		sqlite3_close(database);
 		error_handler("[SERVER] Errore creazione RESERVATION table sqlite");
+	}
+}
+
+//inserimento
+void database_user_insert(sqlite3* database, user* user_to_insert){
+
+	sqlite3_stmt* prepared;
+	const char *statement_sql = "INSERT INTO USER(username, password) VALUES (?,?);";
+
+	if(sqlite3_prepare_v2(database, statement_sql, -1, &prepared, NULL) != SQLITE_OK){
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore inserimento USER table sqlite");
+	}
+	
+	sqlite3_bind_text(prepared, 1, user_to_insert->username, -1, SQLITE_STATIC);
+	sqlite3_bind_text(prepared, 2, user_to_insert->password, -1, SQLITE_STATIC);
+	
+	if(sqlite3_step(prepared) == SQLITE_DONE){
+		printf("\n[SERVER] Inserito USER(%s, %s)\n.", user_to_insert->username, user_to_insert->password);
+	} else {
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore inserimento USER table sqlite");
+	}
+	
+	sqlite3_finalize(prepared);
+}
+
+void database_film_insert(sqlite3* database, film* film_to_insert){
+
+	sqlite3_stmt* prepared;
+	const char *statement_sql = "INSERT INTO FILM(title, available_copies) VALUES (?,?);";
+	
+	if(sqlite3_prepare_v2(database, statement_sql, -1, &prepared, NULL) != SQLITE_OK){
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore inserimento FILM table sqlite");
+	}
+	
+	sqlite3_bind_text(prepared, 1, film_to_insert->title, -1, SQLITE_STATIC);
+	sqlite3_bind_int(prepared, 2, film_to_insert->available_copies);
+	
+	if(sqlite3_step(prepared) == SQLITE_DONE){
+		printf("\n[SERVER] Inserito FILM(%s, %d)\n.", film_to_insert->title, film_to_insert->available_copies);
+	} else {
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore inserimento FILM table sqlite");
+	}
+	
+	sqlite3_finalize(prepared);
+}
+
+void database_reservation_insert(sqlite3* database, reservation* reservation_to_insert){
+	
+	sqlite3_stmt* prepared;
+	const char *statement_sql = "INSERT INTO RESERVATION(rental_date, user_id, film_id) VALUES (?,?,?);";
+	
+	if(sqlite3_prepare_v2(database, statement_sql, -1, &prepared, NULL) != SQLITE_OK){
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore inserimento RESERVATION table sqlite");
+	}
+	
+	sqlite3_bind_int64(prepared, 1, (sqlite3_int64)reservation_to_insert->rental_date);
+	sqlite3_bind_int(prepared, 2, reservation_to_insert->user_id);
+	sqlite3_bind_int(prepared, 3, reservation_to_insert->film_id);
+
+	if(sqlite3_step(prepared) == SQLITE_DONE){
+		printf("\n[SERVER] Inserito RESERVATION(%lld, %d, %d)\n.", (long long)reservation_to_insert->rental_date, reservation_to_insert->user_id, reservation_to_insert->film_id);
+	} else {
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore inserimento RESERVATION table sqlite");
+	}
+	
+	sqlite3_finalize(prepared);
+}
+
+//update
+void database_film_add_rented_out_copy(sqlite3* database, int film_id) {
+
+	sqlite3_stmt* prepared;
+	const char *statement_sql = "UPDATE FILM SET rented_out_copies = rented_out_copies + 1 WHERE film_id = ?;";
+	
+	if(sqlite3_prepare_v2(database, statement_sql, -1, &prepared, NULL) != SQLITE_OK){
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore update FILM table sqlite");
+	}
+	
+	sqlite3_bind_int(prepared, 1, film_id);
+	
+	if(sqlite3_step(prepared) == SQLITE_DONE){
+		printf("\n[SERVER] Aggiunta al FILM(%d) +1 copia noleggiata.\n", film_id);
+	} else {
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore aggiornamento FILM table sqlite");
+	}
+	
+	sqlite3_finalize(prepared);
+}
+
+void database_film_remove_rented_out_copy(sqlite3* database, int film_id) {
+
+	sqlite3_stmt* prepared;
+	const char *statement_sql = "UPDATE FILM SET rented_out_copies = rented_out_copies - 1 WHERE film_id = ?;";
+	
+	if(sqlite3_prepare_v2(database, statement_sql, -1, &prepared, NULL) != SQLITE_OK){
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore update FILM table sqlite");
+	}
+	
+	sqlite3_bind_int(prepared, 1, film_id);
+	
+	if(sqlite3_step(prepared) == SQLITE_DONE){
+		printf("\n[SERVER] Aggiunta al FILM(%d) -1 copia noleggiata.\n", film_id);
+	} else {
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore aggiornamento FILM table sqlite");
+	}
+	
+	sqlite3_finalize(prepared);
+}
+
+void database_reservation_add_due_date(sqlite3* database, int reservation_id) {
+	
+	sqlite3_stmt* prepared;
+	const char *statement_sql = "UPDATE RESERVATION SET due_date = ? WHERE reservation_id = ?;";
+	
+	if(sqlite3_prepare_v2(database, statement_sql, -1, &prepared, NULL) != SQLITE_OK){
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore update RESERVATION table sqlite");
+	}
+	
+	//calcolo della data esatta di adesso
+	time_t now = time(NULL);
+	
+	sqlite3_bind_int64(prepared, 1, (sqlite3_int64)now);
+	sqlite3_bind_int(prepared, 2, reservation_id);
+	
+	if(sqlite3_step(prepared) == SQLITE_DONE){
+		printf("\n[SERVER] Aggiunta alla RESERVATION(%d) due_date = %lld.\n", reservation_id, (long long)now);
+	} else {
+		sqlite3_close(database);
+		error_handler("[SERVER] Errore aggiornamento RESERVATION table sqlite");
+	}
+	
+	sqlite3_finalize(prepared);
 }
 
 void error_handler(char *message){
