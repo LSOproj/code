@@ -12,6 +12,9 @@
 #include <time.h>
 
 #define MAX_ACCEPTED_CLIENT 	50
+#define MAX_USERS 		100
+#define MAX_FILMS		100
+#define MAX_RESERVATIONS	100
 #define MAX_USER_USERNAME_SIZE	100
 #define MAX_USER_PASSWORD_SIZE	100
 #define MAX_FILM_TITLE_SIZE	100
@@ -43,7 +46,41 @@ typedef struct reservation {
 
 } reservation; 
 
-void error_handler(char *message);
+typedef struct user_list {
+
+	user users[MAX_USERS];
+	int dim;
+	int in_idx;
+	int out_idx;
+	pthread_mutext_t users_mutex;	
+}
+
+typedef struct film_list {
+
+	film films[MAX_FILMS];
+	int dim;
+	int in_idx;
+	int out_idx;
+	pthread_mutex_t films_mutex;
+}
+
+typedef struct reservation_list {
+
+	reservation reservations[MAX_RESERVATIONS];
+	int dim;
+	int in_idx;
+	int out_idx;
+	pthread_mutex_t reservations_mutex;
+}
+
+user_list *user_list;
+film_list *film_list;
+reservation_list *reservation_list;
+
+//init global data list
+user_list* init_user_list();
+film_list* init_film_list();
+reservation_list* init_reservation_list();
 
 //database connection
 void database_connection_init(sqlite3** database);
@@ -63,8 +100,11 @@ void database_film_add_rented_out_copy(sqlite3* database, int film_id);
 void database_film_remove_rented_out_copy(sqlite3* database, int film_id);
 void database_reservation_add_due_date(sqlite3* database, int reservation_id);
 
-//miscellous
+//threads
 void* connection_handler(void* arg);
+
+//miscellous
+void error_handler(char *message);
 
 int main(){
 	
@@ -72,6 +112,7 @@ int main(){
 	sqlite3 *database;
 
 	database_connection_init(&database);
+	sqlite3_busy_timeout(database, 10000);
 
 	printf("\n[SERVER] Database connesso.\n");
 	
@@ -131,26 +172,14 @@ int main(){
 	return 0;
 }
 
-void* connection_handler(void* client_socket_arg){
-	
-	printf("\n[SERVER] Assegnato il thread %d al client.\n", (int)pthread_self());
-	
-	pthread_detach((int)pthread_self());
+//init global data list
+user_list* init_user_list(){
 
-	int client_socket = *(int*)client_socket_arg;
-	free(client_socket_arg);
-
-	//codice da rimuovere
-	char message[100] = "\nBenvenuto nel server!\0\n";
-	ssize_t bytes_read;
-
-	if((bytes_read = write(client_socket, message, 100)) < 0)
-		error_handler("[SERVER] Errore write");
-
-	close(client_socket);
-
-	pthread_exit(NULL);
+	user_list *list = (user_list *)malloc
 }
+
+film_list* init_film_list();
+reservation_list* init_reservation_list();
 
 //creazione tabelle database
 void database_connection_init(sqlite3 **database){
@@ -351,6 +380,30 @@ void database_reservation_add_due_date(sqlite3* database, int reservation_id) {
 	}
 	
 	sqlite3_finalize(prepared);
+}
+
+//recupero tutte risorse al loading
+
+
+void* connection_handler(void* client_socket_arg){
+	
+	printf("\n[SERVER] Assegnato il thread %d al client.\n", (int)pthread_self());
+	
+	pthread_detach((int)pthread_self());
+
+	int client_socket = *(int*)client_socket_arg;
+	free(client_socket_arg);
+
+	//codice da rimuovere
+	char message[100] = "\nBenvenuto nel server!\0\n";
+	ssize_t bytes_read;
+
+	if((bytes_read = write(client_socket, message, 100)) < 0)
+		error_handler("[SERVER] Errore write");
+
+	close(client_socket);
+
+	pthread_exit(NULL);
 }
 
 void error_handler(char *message){
