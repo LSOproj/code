@@ -1,0 +1,11 @@
+Il senso generale è che il client scrive queste stringhe (prima del "-->") sulla socket, il server le ascolta e scrive i dati richiesti sulla socket
+
+CLIENT                                                  SERVER                                                                                  CLIENT
+===========================================================================================================================================================
+REGISTER username password                 |-write->    reazione utente         |-write->     OK                                                    <-read-| 
+LOGIN username password                    |-write->    controllo utente        |-write->     OK user_id                                            <-read-|
+GET FILMS                                  |-write->    return film_t[]         |-write->     OK film_id title available_copies rented_out_copies   <-read-|
+SELECT user_id film_id[]                   |-write->!!                          |-write->     OK 
+CHECKOUT user_id film_id[]                 |-write->    update copies film_t[]
+RENT_FILM user_id film_id                  |-write->    update film_t           |-write->     OK film_id                                            <-read-|
+RETURN_RENTED_MOVIE user_id film_id        |-write->    update film_t           |-write->     OK film_id                                            <-read-|

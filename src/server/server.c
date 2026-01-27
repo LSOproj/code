@@ -418,8 +418,8 @@ void database_reservation_table_init(sqlite3* database){
 		"user_id INTEGER NOT NULL, "
 		"film_id INTEGER NOT NULL, "
 		"FOREIGN KEY (user_id) REFERENCES USER(id), "
-        	"FOREIGN KEY (film_id) REFERENCES FILM(id)"
-        	");";
+        "FOREIGN KEY (film_id) REFERENCES FILM(id)"
+        ");";
 		
 	if(sqlite3_exec(database, statement_sql, 0, 0, NULL) != 0){
 		sqlite3_close(database);
