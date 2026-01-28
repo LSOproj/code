@@ -24,6 +24,7 @@
 #define GET_FILMS_PROTOCOL_MESSAGE  				"GET_FILMS"
 #define RENT_FILM_PROTOCOL_MESSAGE  				"RENT_FILM"
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE			"RETURN_RENTED_FILM"
+
 #define SUCCESS_SERVER_RESPONSE						"SUCCESS"
 #define FAILED_SERVER_RESPONSE						"FAILED"
 #define PROTOCOL_MESSAGE_MAX_SIZE 					20
@@ -228,28 +229,43 @@ void* connection_handler(void* client_socket_arg){
 
 	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
-	if(read(client_socket, protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		close(client_socket);
-		error_handler("[SERVER] Errore riconoscimento comando di protocollo");
-	}
+	while(read(client_socket, protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) > 0){
+		
+		if (strncmp(protocol_message, REGISTER_PROTOCOL_MESSAGE, strlen(REGISTER_PROTOCOL_MESSAGE)) == 0){
 
-	if (strncmp(protocol_message, REGISTER_PROTOCOL_MESSAGE, strlen(REGISTER_PROTOCOL_MESSAGE))){
+			char user_username[MAX_USER_USERNAME_SIZE] = {0};
+			char user_password[MAX_USER_PASSWORD_SIZE] = {0};
 
-		char user_username[MAX_USER_USERNAME_SIZE] = {0};
-		char user_password[MAX_USER_PASSWORD_SIZE] = {0};
+			if(read(client_socket, user_username, MAX_USER_USERNAME_SIZE) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura USER username da socket");
+			}
+		
+			if(read(client_socket, user_password, MAX_USER_PASSWORD_SIZE) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura USER password da socket");
+			}
 
-		if(read(client_socket, user_username, MAX_USER_USERNAME_SIZE) < 0){
-			close(client_socket);
-			error_handler("[SERVER] Errore lettura USER username da socket");
+			create_new_user(database, user_username, user_password);
+
+			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+			strcpy(success_message, SUCCESS_SERVER_RESPONSE);
+
+			if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore server write");
+			}
+
+		} else if (strncmp(protocol_message, LOGIN_PROTOCOL_MESSAGE, strlen(LOGIN_PROTOCOL_MESSAGE) == 0)){
+
+		} else if (strncmp(protocol_message, GET_FILMS_PROTOCOL_MESSAGE, strlen(GET_FILMS_PROTOCOL_MESSAGE) == 0)){
+			
+		} else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE) == 0)){
+			
+		} else if (strncmp(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE, strlen(RETURN_RENTED_FILM_PROTOCOL_MESSAGE) == 0)){
+			
 		}
-	
-		if(read(client_socket, user_password, MAX_USER_PASSWORD_SIZE) < 0){
-			close(client_socket);
-			error_handler("[SERVER] Errore lettura USER password da socket");
-		}
 
-		printf("\nUSER username: %s.\n", user_username);
-		printf("\nUSER password: %s.\n", user_password);
 	}
 
 	//
