@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -43,17 +44,6 @@ typedef struct film_t {
 user_t user;
 film_t avaible_films[MAX_FILMS];
 
-typedef enum PROTOCOL_MESSAGE {
-	
-	REGISTER,
-	LOGIN,
-	GET_FILMS,
-	RENT_FILM,
-	RUTERN_RENTED_FILM,
-	CHECKOUT
-
-} protocol_message;
-
 int start_up_menu(void){
 	printf(
 			"1 - Register\n"
@@ -68,6 +58,17 @@ int start_up_menu(void){
 	return choice;
 }
 
+void check_server_respose(int client_socket){
+	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	if((read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE)) < 0){
+		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		exit(-1);
+	}
+
+	if(strncmp(response, SUCCESS_SERVER_RESPONSE, strlen(SUCCESS_SERVER_RESPONSE)) == 0)
+		printf("[CLIENT] Registrazione avvenuta con successo!\n");
+}
+
 void register_user(int client_socket){
 
 	system("clear");
@@ -80,24 +81,25 @@ void register_user(int client_socket){
 	printf("Inserire la password che si desidera usare: ");
 	scanf("%s", password);
 
-	char protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-	strcpy(protocol_command, REGISTER_PROTOCOL_MESSAGE);
+	char register_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(register_protocol_command, REGISTER_PROTOCOL_MESSAGE);
 
-	if(write(client_socket, protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		printf("Impossibilile mandare il messaggio di protocollo\n");
+	if(write(client_socket, register_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile mandare il messaggio di protocollo %s\n", register_protocol_command);
 		exit(-1);
 	}
 
 	if(write(client_socket, username, MAX_USER_USERNAME_SIZE) < 0){
-		printf("Impossibilile mandare il username\n");
+		printf("[CLIENT] Impossibilile mandare il username\n");
 		exit(-1);
 	}
 
 	if(write(client_socket, password, MAX_USER_PASSWORD_SIZE) < 0){
-		printf("Impossibilile mandare la password\n");
+		printf("[CLIENT] Impossibilile mandare la password\n");
 		exit(-1);
 	}
 
+	/*
 	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 	if((read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE)) < 0){
 		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
@@ -105,7 +107,43 @@ void register_user(int client_socket){
 	}
 
 	if(strncmp(response, SUCCESS_SERVER_RESPONSE, strlen(SUCCESS_SERVER_RESPONSE)) == 0)
-		printf("Registrazione avvenuta con successo!\n");
+		printf("[CLIENT] Registrazione avvenuta con successo!\n");
+	*/
+
+	check_server_respose(client_socket);
+}
+
+void login_user(int client_socket){
+	system("clear");
+
+	char username[MAX_USER_USERNAME_SIZE] = {0};
+	printf("Inserisci username: ");
+	scanf("%s", username);
+
+
+	char password[MAX_USER_USERNAME_SIZE] = {0};
+	printf("Inserisci password: ");
+	scanf("%s", password);
+
+	char login_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE];
+	strcpy(login_protocol_command, LOGIN_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, login_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile mandare il messaggio di protocollo %s\n", login_protocol_command);
+		exit(-1);
+	}
+
+	if(write(client_socket, username, MAX_USER_USERNAME_SIZE) < 0){
+		printf("[CLIENT] Impossibilile mandare il username\n");
+		exit(-1);
+	}
+
+	if(write(client_socket, password, MAX_USER_PASSWORD_SIZE) < 0){
+		printf("[CLIENT] Impossibilile mandare la password\n");
+		exit(-1);
+	}
+
+	check_server_respose(client_socket);
 }
 
 int main(){
