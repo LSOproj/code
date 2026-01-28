@@ -258,6 +258,21 @@ void* connection_handler(void* client_socket_arg){
 
 		} else if (strncmp(protocol_message, LOGIN_PROTOCOL_MESSAGE, strlen(LOGIN_PROTOCOL_MESSAGE) == 0)){
 
+			char user_username[MAX_USER_USERNAME_SIZE] = {0};
+			char user_password[MAX_USER_PASSWORD_SIZE] = {0};
+
+			if(read(client_socket, user_username, MAX_USER_USERNAME_SIZE) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura USER username da socket");
+			}
+		
+			if(read(client_socket, user_password, MAX_USER_PASSWORD_SIZE) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura USER password da socket");
+			}
+
+
+
 		} else if (strncmp(protocol_message, GET_FILMS_PROTOCOL_MESSAGE, strlen(GET_FILMS_PROTOCOL_MESSAGE) == 0)){
 			
 		} else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE) == 0)){
@@ -579,7 +594,7 @@ int database_user_insert(sqlite3* database, char *user_username, char *user_pass
 
 	if(sqlite3_step(prepared) == SQLITE_DONE){
 		user_id = (int)sqlite3_last_insert_rowid(database);
-		printf("\n[SERVER] Inserito USER(%s, %s)\n.", user_username, user_password);
+		printf("\n[SERVER] Inserito USER(%s, %s).\n", user_username, user_password);
 	} else {
 		sqlite3_close(database);
 		error_handler("[SERVER] Errore inserimento USER table sqlite");
@@ -606,7 +621,7 @@ int database_film_insert(sqlite3* database, char *film_title, int film_available
 	
 	if(sqlite3_step(prepared) == SQLITE_DONE){
 		film_id = sqlite3_last_insert_rowid(database);
-		printf("\n[SERVER] Inserito FILM(%s, %d)\n.", film_title, film_available_copies);
+		printf("\n[SERVER] Inserito FILM(%s, %d).\n", film_title, film_available_copies);
 	} else {
 		sqlite3_close(database);
 		error_handler("[SERVER] Errore inserimento FILM table sqlite");
@@ -634,7 +649,7 @@ int database_reservation_insert(sqlite3* database, time_t reservation_rental_dat
 
 	if(sqlite3_step(prepared) == SQLITE_DONE){
 		reservation_id = (int)sqlite3_last_insert_rowid(database);
-		printf("\n[SERVER] Inserito RESERVATION(%lld, %d, %d)\n.", (long long)reservation_rental_date, reservation_user_id, reservation_film_id);
+		printf("\n[SERVER] Inserito RESERVATION(%lld, %d, %d).\n", (long long)reservation_rental_date, reservation_user_id, reservation_film_id);
 	} else {
 		sqlite3_close(database);
 		error_handler("[SERVER] Errore inserimento RESERVATION table sqlite");
@@ -769,6 +784,25 @@ user_t* search_user_by_id(int user_id){
 
 	for(int i = 0; i < user_list->dim; i++){
 		if(user_list->users[i]->id == user_id){
+			searched_user = user_list->users[i];
+			break;
+		}
+	}
+
+	pthread_mutex_unlock(&user_list->users_mutex);
+
+	return searched_user;
+}
+
+user_t* search_user_by_username(char *user_username){
+
+	pthread_mutex_lock(&user_list->users_mutex);
+
+	user_t* searched_user = NULL;
+
+	for(int i = 0; i < user_list->dim; i++){
+
+		if(strncmp(user_list->users[i]->username == )){
 			searched_user = user_list->users[i];
 			break;
 		}
