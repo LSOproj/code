@@ -9,3 +9,11 @@ SELECT user_id film_id[]                   |-write->!!                          
 CHECKOUT user_id film_id[]                 |-write->    update copies film_t[]
 RENT_FILM user_id film_id                  |-write->    update film_t           |-write->     OK film_id                                            <-read-|
 RETURN_RENTED_MOVIE user_id film_id        |-write->    update film_t           |-write->     OK film_id                                            <-read-|
+
+
+
+OK
+5
+
+CHECKOUT
+id titolo copie1 copie2
