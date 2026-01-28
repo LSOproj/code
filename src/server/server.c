@@ -19,11 +19,14 @@
 #define MAX_USER_PASSWORD_SIZE	100
 #define MAX_FILM_TITLE_SIZE		100
 
-#define REGISTER_PROTOCOL_MESSAGE 			"REGISTER"
-#define LOGIN_PROTOCOL_MESSAGE 				"LOGIN"
-#define GET_FILMS_PROTOCOL_MESSAGE  		"GET_FILMS"
-#define RENT_FILM_PROTOCOL_MESSAGE  		"RENT_FILM"
-#define RETURN_RENTED_FILM_PROTOCOL_MESSAGE	"RETURN_RENTED_FILM"
+#define REGISTER_PROTOCOL_MESSAGE 					"REGISTER"
+#define LOGIN_PROTOCOL_MESSAGE 						"LOGIN"
+#define GET_FILMS_PROTOCOL_MESSAGE  				"GET_FILMS"
+#define RENT_FILM_PROTOCOL_MESSAGE  				"RENT_FILM"
+#define RETURN_RENTED_FILM_PROTOCOL_MESSAGE			"RETURN_RENTED_FILM"
+#define SUCCESS_SERVER_RESPONSE						"SUCCESS"
+#define FAILED_SERVER_RESPONSE						"FAILED"
+#define PROTOCOL_MESSAGE_MAX_SIZE 					20
 
 //data types
 typedef struct user_t {
@@ -223,13 +226,33 @@ void* connection_handler(void* client_socket_arg){
 	int client_socket = *(int*)client_socket_arg;
 	free(client_socket_arg);
 
-	//codice da rimuovere
-	char message[100] = "\nBenvenuto nel server!\0\n";
-	ssize_t bytes_read;
+	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
-	if((bytes_read = write(client_socket, message, 100)) < 0)
-		error_handler("[SERVER] Errore write");
+	if(read(client_socket, protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Errore riconoscimento comando di protocollo");
+	}
 
+	if (strncmp(protocol_message, REGISTER_PROTOCOL_MESSAGE, strlen(REGISTER_PROTOCOL_MESSAGE))){
+
+		char user_username[MAX_USER_USERNAME_SIZE] = {0};
+		char user_password[MAX_USER_PASSWORD_SIZE] = {0};
+
+		if(read(client_socket, user_username, MAX_USER_USERNAME_SIZE) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore lettura USER username da socket");
+		}
+	
+		if(read(client_socket, user_password, MAX_USER_PASSWORD_SIZE) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore lettura USER password da socket");
+		}
+
+		printf("\nUSER username: %s.\n", user_username);
+		printf("\nUSER password: %s.\n", user_password);
+	}
+
+	//
 	close(client_socket);
 
 	pthread_exit(NULL);
