@@ -1031,6 +1031,12 @@ void send_all_films_to_client(int client_socket){
 		close(client_socket);
 		error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
 	}
+	
+	int films_dim = film_list->dim;
+	if(write(client_socket, &films_dim, sizeof(films_dim)) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Impossibile mandare il numero di film");
+	}
 
 	int films_dim = film_list->dim;
 	if(write(client_socket, &films_dim, sizeof(films_dim)) < 0){
@@ -1141,8 +1147,6 @@ user_t* search_user_by_id(unsigned int user_id){
 
 	user_t* searched_user = NULL;
 
-	//pthread_mutex_lock(&user_list->users_mutex);
-
 	for(int i = 0; i < user_list->dim; i++){
 		if(user_list->users[i]->id == user_id){
 			searched_user = user_list->users[i];
@@ -1150,16 +1154,12 @@ user_t* search_user_by_id(unsigned int user_id){
 		}
 	}
 
-	//pthread_mutex_unlock(&user_list->users_mutex);
-
 	return searched_user;
 }
 
 user_t* search_user_by_username(char *user_username){
 
 	user_t* searched_user = NULL;
-
-	//pthread_mutex_lock(&user_list->users_mutex);
 
 	for(int i = 0; i < user_list->dim; i++){
 
@@ -1169,16 +1169,12 @@ user_t* search_user_by_username(char *user_username){
 		}
 	}
 
-	//pthread_mutex_unlock(&user_list->users_mutex);
-
 	return searched_user;
 }
 
 user_t* search_user_by_username_and_password(char *user_username, char *user_password){
 
 	user_t* searched_user = NULL;
-
-	//pthread_mutex_lock(&user_list->users_mutex);
 
 	for(int i = 0; i < user_list->dim; i++){
 
@@ -1193,14 +1189,10 @@ user_t* search_user_by_username_and_password(char *user_username, char *user_pas
 		}
 	}
 
-	//pthread_mutex_unlock(&user_list->users_mutex);
-
 	return searched_user;
 }
 
 film_t* search_film_by_id(unsigned int film_id){
-
-	//pthread_mutex_lock(&film_list->films_mutex);
 
 	film_t* searched_film = NULL;
 
@@ -1211,14 +1203,10 @@ film_t* search_film_by_id(unsigned int film_id){
 		}
 	}
 
-	//pthread_mutex_unlock(&film_list->films_mutex);
-
 	return searched_film;
 }
 
 reservation_t* search_reservation_by_id(unsigned int reservation_id){
-
-	//pthread_mutex_lock(&reservation_list->reservations_mutex);
 
 	reservation_t* searched_reservation = NULL;
 
@@ -1228,8 +1216,6 @@ reservation_t* search_reservation_by_id(unsigned int reservation_id){
 			break;
 		}
 	}
-
-	//pthread_mutex_unlock(&reservation_list->reservations_mutex);
 
 	return searched_reservation;
 }

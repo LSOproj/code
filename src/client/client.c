@@ -240,7 +240,7 @@ void main_menu(int client_socket){
 	}
 
 	for(int i = 0; i < num_films; i++){
-		printf("%d %10s %10d %10d\n", 
+		printf("%d %5s %15d %15d\n", 
 					avaible_films[i].id,
 					avaible_films[i].title,
 					avaible_films[i].available_copies,
