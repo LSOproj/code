@@ -10,6 +10,9 @@
 #include <string.h>
 #include <sqlite3.h>
 #include <time.h>
+#include <libgen.h>
+#include <unistd.h>
+#include <limits.h>
 
 #define MAX_ACCEPTED_CLIENT 	50
 #define MAX_USERS 				100
@@ -133,6 +136,7 @@ void create_new_reservation(sqlite3* database, int reservation_user_id, int rese
 
 //search
 user_t* search_user_by_id(int user_id);
+user_t* search_user_by_username(char *user_username);
 film_t* serach_film_by_id(int film_id);
 reservation_t* search_reservation_by_id(int reservation_id);
 
@@ -144,7 +148,7 @@ void error_handler(char *message);
 
 int main(){
 	
-	int server_socket, client_socket;
+	int server_socket;
 
 	database_connection_init(&database);
 	sqlite3_busy_timeout(database, 10000);
@@ -196,15 +200,16 @@ int main(){
 		if(client_socket == NULL)
 			error_handler("[SERVER] Errore allocazione dinamica");
 
-		if((*client_socket = accept(server_socket, (struct sockaddr *) &server_address, &server_address_len)) < 0)
+		if((*client_socket = accept(server_socket, (struct sockaddr *) &server_address, &server_address_len)) < 0){
+			free(client_socket);
 			error_handler("[SERVER] Errore accept socket");
+		}
 
 		printf("\n[SERVER] Ricevuta connessione di un client.\n");
 
 		pthread_t tid;
 		if(pthread_create(&tid, NULL, connection_handler, (void *)client_socket) < 0){
 			free(client_socket);
-			close(*client_socket);
 			error_handler("[SERVER] Errore creazione thread");
 		}
 
@@ -256,7 +261,7 @@ void* connection_handler(void* client_socket_arg){
 				error_handler("[SERVER] Errore server write");
 			}
 
-		} else if (strncmp(protocol_message, LOGIN_PROTOCOL_MESSAGE, strlen(LOGIN_PROTOCOL_MESSAGE) == 0)){
+		} else if (strncmp(protocol_message, LOGIN_PROTOCOL_MESSAGE, strlen(LOGIN_PROTOCOL_MESSAGE)) == 0){
 
 			char user_username[MAX_USER_USERNAME_SIZE] = {0};
 			char user_password[MAX_USER_PASSWORD_SIZE] = {0};
@@ -271,13 +276,28 @@ void* connection_handler(void* client_socket_arg){
 				error_handler("[SERVER] Errore lettura USER password da socket");
 			}
 
-
-
-		} else if (strncmp(protocol_message, GET_FILMS_PROTOCOL_MESSAGE, strlen(GET_FILMS_PROTOCOL_MESSAGE) == 0)){
+			// Cerca l'utente e verifica la password
+			user_t* found = search_user_by_username(user_username);
+			char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 			
-		} else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE) == 0)){
+			if(found != NULL && strncmp(found->password, user_password, MAX_USER_PASSWORD_SIZE) == 0){
+				strcpy(response, SUCCESS_SERVER_RESPONSE);
+				printf("\n[SERVER] LOGIN riuscito per utente: %s\n", user_username);
+			} else {
+				strcpy(response, FAILED_SERVER_RESPONSE);
+				printf("\n[SERVER] LOGIN fallito per utente: %s\n", user_username);
+			}
+
+			if(write(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore server write");
+			}
+
+		} else if (strncmp(protocol_message, GET_FILMS_PROTOCOL_MESSAGE, strlen(GET_FILMS_PROTOCOL_MESSAGE)) == 0){
 			
-		} else if (strncmp(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE, strlen(RETURN_RENTED_FILM_PROTOCOL_MESSAGE) == 0)){
+		} else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE)) == 0){
+			
+		} else if (strncmp(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE, strlen(RETURN_RENTED_FILM_PROTOCOL_MESSAGE)) == 0){
 			
 		}
 
@@ -440,11 +460,29 @@ reservation_list_t* init_reservation_list(){
 
 //creazione tabelle database
 void database_connection_init(sqlite3 **database){
+	char exe_path[PATH_MAX];
+    char db_full_path[PATH_MAX];
 
-	if(sqlite3_open("database.db", database) != 0){
-		sqlite3_close(*database);
-		error_handler("[SERVER] Errore creazione/apertura database");
-	}
+    //Prende come riferimento l'eseguibile""
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
+    
+    if (len != -1) {
+        exe_path[len] = '\0';
+        //Ottiene la cartella dell'eseguibile
+        char *dir = dirname(exe_path);
+        //Costruisce il percorso completo del database
+        snprintf(db_full_path, sizeof(db_full_path), "%s/database.db", dir);
+    } else {
+        // Fallback di emergenza se readlink fallisce
+        strcpy(db_full_path, "database.db");
+    }
+
+    if (sqlite3_open(db_full_path, database) != SQLITE_OK) {
+        fprintf(stderr, "[SERVER] Errore critico apertura SQLite: %s\n", sqlite3_errmsg(*database));
+        exit(-1);
+    }
+    
+    printf("[SERVER] Database aperto con successo in: %s\n", db_full_path);
 }
 
 void database_user_table_init(sqlite3* database){
@@ -802,7 +840,7 @@ user_t* search_user_by_username(char *user_username){
 
 	for(int i = 0; i < user_list->dim; i++){
 
-		if(strncmp(user_list->users[i]->username == )){
+		if(strncmp(user_list->users[i]->username, user_username, MAX_USER_USERNAME_SIZE) == 0){ //fix stringcompare
 			searched_user = user_list->users[i];
 			break;
 		}

@@ -58,7 +58,7 @@ int start_up_menu(void){
 	return choice;
 }
 
-void check_server_respose(int client_socket){
+void check_server_respose(int client_socket, const char* success_message){
 	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 	if((read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE)) < 0){
 		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
@@ -66,7 +66,9 @@ void check_server_respose(int client_socket){
 	}
 
 	if(strncmp(response, SUCCESS_SERVER_RESPONSE, strlen(SUCCESS_SERVER_RESPONSE)) == 0)
-		printf("[CLIENT] Registrazione avvenuta con successo!\n");
+		printf("[CLIENT] %s\n", success_message);
+	else
+		printf("[CLIENT] Operazione fallita!\n");
 }
 
 void register_user(int client_socket){
@@ -110,7 +112,7 @@ void register_user(int client_socket){
 		printf("[CLIENT] Registrazione avvenuta con successo!\n");
 	*/
 
-	check_server_respose(client_socket);
+	check_server_respose(client_socket, "Registrazione avvenuta con successo!");
 }
 
 void login_user(int client_socket){
@@ -143,7 +145,7 @@ void login_user(int client_socket){
 		exit(-1);
 	}
 
-	check_server_respose(client_socket);
+	check_server_respose(client_socket, "Login effettuato con successo!");
 }
 
 int main(){
@@ -179,14 +181,14 @@ int main(){
 				register_user(client_socket);
 				break;
 			case 2:
-				printf("funzione login");
+				login_user(client_socket);
 				// login();
 				break;
 			case 0:
-				printf("Arrivederci");
+				printf("Arrivederci\n");
 				exit(0);
 				break;
-			defualt:
+			default:
 				printf("Scelta non valida, ritentare.");
 				sleep(2);
 		}
