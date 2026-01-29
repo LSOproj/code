@@ -173,6 +173,24 @@ void login_user(int client_socket){
 	printf("[CLIENT] Assegnato USER id %u\n", user_id);
 }
 
+void main_menu(int client_socket){
+	system("clear");
+
+	char get_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE];
+	if(write(client_socket, get_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile mandare il messaggio di protocollo %s\n", get_films_protocol_command);
+		exit(-1);
+	}
+	
+	char momentary_film_id;
+	char momentary_film_title[MAX_FILM_TITLE_SIZE];
+	int momentary_film_available_copies;
+	int momentary_film_rented_out_copies;
+	while(i < numfilms){
+		if(read(client_socket, momentary_film_id, sizeof(momentary_film_id)))
+	}
+}
+
 int main(){
 
 	// sd(socket descriptor), socket su cui il client riceve
