@@ -1,4 +1,3 @@
-//ciao
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -179,16 +178,53 @@ void main_menu(int client_socket){
 
 	char get_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE];
 	if(write(client_socket, get_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		printf("[CLIENT] Impossibile mandare il messaggio di protocollo %s\n", get_films_protocol_command);
+		printf("[CLIENT] Impossibile mandare il messaggio di protocollo: %s\n", get_films_protocol_command);
+		exit(-1);
+	}
+
+	int num_films;
+	if(read(client_socket, &num_films, sizeof(num_films)) < 0){
+		printf("[CLIENT] Errore nella ricezione del numero in arrico film\n");
 		exit(-1);
 	}
 	
-	char momentary_film_id;
+	int momentary_film_id;
 	char momentary_film_title[MAX_FILM_TITLE_SIZE];
 	int momentary_film_available_copies;
 	int momentary_film_rented_out_copies;
-	while(i < numfilms){
-		if(read(client_socket, momentary_film_id, sizeof(momentary_film_id)))
+	int i = 0;
+	while(i < num_films){
+		if(read(client_socket, &momentary_film_id, sizeof(momentary_film_id)) < 0){
+			printf("[CLIENT] Errore nella ricezione del film id\n");
+			exit(-1);
+		}
+		if(read(client_socket, momentary_film_title, MAX_FILM_TITLE_SIZE) < 0){
+			printf("[CLIENT] Errore nella ricezione del titolo film\n");
+			exit(-1);
+		}
+		if(read(client_socket, &momentary_film_available_copies, sizeof(momentary_film_available_copies)) < 0){
+			printf("[CLIENT] Errore nella ricezione del numero di copie disponibile del film\n");
+			exit(-1);
+		}
+		if(read(client_socket, &momentary_film_rented_out_copies, sizeof(momentary_film_rented_out_copies)) < 0){
+			printf("[CLIENT] Errore nella ricezione del numero di copie affitate del film\n");
+			exit(-1);
+		}
+
+		avaible_films[i].id = momentary_film_id;
+		strcpy(avaible_films[i].title, momentary_film_title);
+		avaible_films[i].available_copies = momentary_film_available_copies;
+		avaible_films[i].rented_out_copies = momentary_film_rented_out_copies;
+
+		i++;
+	}
+
+	for(int i = 0; i < num_films; i++){
+		printf("%d %10s %10d %10d", 
+					avaible_films[i].id,
+					avaible_films[i].title,
+					avaible_films[i].available_copies,
+					avaible_films[i].rented_out_copies);
 	}
 }
 
