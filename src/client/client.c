@@ -44,6 +44,7 @@ typedef struct film_t {
 
 } film_t;
 
+int user_id;
 user_t user;
 film_t avaible_films[MAX_FILMS];
 
@@ -163,6 +164,13 @@ void login_user(int client_socket){
 	}
 
 	check_server_respose(client_socket);
+
+	if(read(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibilile leggere lo USER id\n");
+		exit(-1);
+	}
+
+	printf("[CLIENT] Assegnato USER id %u\n", user_id);
 }
 
 int main(){
@@ -201,10 +209,10 @@ int main(){
 				login_user(client_socket);
 				break;
 			case 0:
-				printf("Arrivederci");
+				printf("Arrivederci\n");
 				exit(0);
 				break;
-			defualt:
+			default:
 				printf("Scelta non valida, ritentare.");
 				sleep(2);
 		}

@@ -1,8 +1,16 @@
+CC = gcc
+CFLAGS = -Wall #abilita tutti i warning (opzionale solo per debug)
+SERVER_DIR = src/server
+CLIENT_DIR = src/client
+
+all: server client
+
 server:
-	gcc ./src/server/server.c -o ./src/server/server -lsqlite3
+	$(CC) $(CFLAGS) $(SERVER_DIR)/server.c -o $(SERVER_DIR)/server -lsqlite3
 
 client:
-	gcc ./src/client/client.c -o ./src/client/client
+	$(CC) $(CFLAGS) $(CLIENT_DIR)/client.c -o $(CLIENT_DIR)/client
 
-clear:
-	rm ./src/server/server.c ./src/client/client.c
+# ho corretto il clear, prima cancellava i *.c ora è fixato. 
+clean:
+	rm -f $(SERVER_DIR)/server $(CLIENT_DIR)/client 

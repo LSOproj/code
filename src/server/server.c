@@ -10,6 +10,9 @@
 #include <string.h>
 #include <sqlite3.h>
 #include <time.h>
+#include <libgen.h>
+#include <unistd.h>
+#include <limits.h>
 
 #define MAX_ACCEPTED_CLIENT 	50
 #define MAX_USERS 				100
@@ -18,6 +21,7 @@
 #define MAX_USER_USERNAME_SIZE	100
 #define MAX_USER_PASSWORD_SIZE	100
 #define MAX_FILM_TITLE_SIZE		100
+#define MAX_PATH				100
 
 //protocol message definitions
 //requests
@@ -160,8 +164,6 @@ film_t* search_film_by_id(unsigned int film_id);
 reservation_t* search_reservation_by_id(unsigned int reservation_id);
 
 
-
-
 //threads
 void* connection_handler(void* arg);
 
@@ -170,7 +172,7 @@ void error_handler(char *message);
 
 int main(){
 	
-	int server_socket, client_socket;
+	int server_socket;
 
 	database_connection_init(&database);
 	sqlite3_busy_timeout(database, 10000);
@@ -222,15 +224,16 @@ int main(){
 		if(client_socket == NULL)
 			error_handler("[SERVER] Errore allocazione dinamica");
 
-		if((*client_socket = accept(server_socket, (struct sockaddr *) &server_address, &server_address_len)) < 0)
+		if((*client_socket = accept(server_socket, (struct sockaddr *) &server_address, &server_address_len)) < 0){
+			free(client_socket);
 			error_handler("[SERVER] Errore accept socket");
+		}
 
 		printf("\n[SERVER] Ricevuta connessione di un client.\n");
 
 		pthread_t tid;
 		if(pthread_create(&tid, NULL, connection_handler, (void *)client_socket) < 0){
 			free(client_socket);
-			close(*client_socket);
 			error_handler("[SERVER] Errore creazione thread");
 		}
 
@@ -521,11 +524,29 @@ reservation_list_t* init_reservation_list(){
 
 //creazione tabelle database
 void database_connection_init(sqlite3 **database){
+	char exe_path[MAX_PATH];
+    char db_full_path[MAX_PATH];
 
-	if(sqlite3_open("database.db", database) != 0){
-		sqlite3_close(*database);
-		error_handler("[SERVER] Errore creazione/apertura database");
-	}
+    //Prende come riferimento l'eseguibile""
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
+    
+    if (len != -1) {
+        exe_path[len] = '\0';
+        //Ottiene la cartella dell'eseguibile
+        char *dir = dirname(exe_path);
+        //Costruisce il percorso completo del database
+        snprintf(db_full_path, sizeof(db_full_path), "%s/database.db", dir);
+    } else {
+        // Fallback di emergenza se readlink fallisce
+        strcpy(db_full_path, "database.db");
+    }
+
+    if (sqlite3_open(db_full_path, database) != SQLITE_OK) {
+        fprintf(stderr, "[SERVER] Errore critico apertura SQLite: %s\n", sqlite3_errmsg(*database));
+        exit(-1);
+    }
+    
+    printf("[SERVER] Database aperto con successo in: %s\n", db_full_path);
 }
 
 void database_user_table_init(sqlite3* database){
