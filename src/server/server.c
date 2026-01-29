@@ -358,6 +358,8 @@ void* connection_handler(void* client_socket_arg){
 
 		} else if (strncmp(protocol_message, GET_FILMS_PROTOCOL_MESSAGE, strlen(GET_FILMS_PROTOCOL_MESSAGE)) == 0){
 
+			printf("\n[SERVER] Ricevuta richiesta tutti i film.\n");
+
 			send_all_films_to_client(client_socket);
 
 		} else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE)) == 0){

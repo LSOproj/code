@@ -195,6 +195,13 @@ void main_menu(int client_socket){
 		exit(-1);
 	}
 
+	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		exit(-1);
+	}
+
 	int num_films;
 	if(read(client_socket, &num_films, sizeof(num_films)) < 0){
 		printf("[CLIENT] Errore nella ricezione del numero in arrico film\n");
@@ -233,7 +240,7 @@ void main_menu(int client_socket){
 	}
 
 	for(int i = 0; i < num_films; i++){
-		printf("%d %10s %10d %10d", 
+		printf("%d %10s %10d %10d\n", 
 					avaible_films[i].id,
 					avaible_films[i].title,
 					avaible_films[i].available_copies,
