@@ -20,9 +20,12 @@
 #define GET_FILMS_PROTOCOL_MESSAGE  		"GET_FILMS"
 #define RENT_FILM_PROTOCOL_MESSAGE  		"RENT_FILM"
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE	"RETURN_RENTED_FILM"
+
 #define SUCCESS_SERVER_RESPONSE				"SUCCESS"
-#define FAILED_SERVER_RESPONSE				"FAILED"
-#define PROTOCOL_MESSAGE_MAX_SIZE			20
+#define FAILED_USER_ALREDY_EXISTS			"FAILED_USER_ALREADY_EXISTS"
+#define FAILED_USER_DOESNT_EXISTS			"FAILED_USER_DOESNT_EXISTS"
+#define FAILED_USER_BAD_CREDENTIALS			"FAILED_USER_BAD_CREDENTIALS"
+#define PROTOCOL_MESSAGE_MAX_SIZE			50
 
 typedef struct user_t {
 
@@ -59,14 +62,30 @@ int start_up_menu(void){
 }
 
 void check_server_respose(int client_socket){
+
 	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
 	if((read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE)) < 0){
 		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
 		exit(-1);
 	}
 
-	if(strncmp(response, SUCCESS_SERVER_RESPONSE, strlen(SUCCESS_SERVER_RESPONSE)) == 0)
-		printf("[CLIENT] Registrazione avvenuta con successo!\n");
+	if (strncmp(response, SUCCESS_SERVER_RESPONSE, strlen(SUCCESS_SERVER_RESPONSE)) == 0)
+
+		printf("[CLIENT] Operazione avvenuta con successo!\n");
+	
+	else if (strncmp(response, FAILED_USER_ALREDY_EXISTS, strlen(FAILED_USER_ALREDY_EXISTS)) == 0)
+
+		printf("[CLIENT] L'username specificato già appartiene ad un altro utente!\n");
+
+	else if (strncmp(response, FAILED_USER_DOESNT_EXISTS, strlen(FAILED_USER_DOESNT_EXISTS)) == 0)
+
+		printf("[CLIENT] L'username specificato non appartiene a nessun utente!\n");
+
+	else if (strncmp(response, FAILED_USER_BAD_CREDENTIALS, strlen(FAILED_USER_BAD_CREDENTIALS)) == 0)
+
+		printf("[CLIENT] Credenziali errate!\n");
+	
 }
 
 void register_user(int client_socket){
@@ -125,7 +144,7 @@ void login_user(int client_socket){
 	printf("Inserisci password: ");
 	scanf("%s", password);
 
-	char login_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE];
+	char login_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 	strcpy(login_protocol_command, LOGIN_PROTOCOL_MESSAGE);
 
 	if(write(client_socket, login_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
@@ -179,8 +198,7 @@ int main(){
 				register_user(client_socket);
 				break;
 			case 2:
-				printf("funzione login");
-				// login();
+				login_user(client_socket);
 				break;
 			case 0:
 				printf("Arrivederci");
