@@ -148,9 +148,9 @@ void database_reservation_add_due_date(sqlite3* database, unsigned int reservati
 //use cases
 int create_new_user(sqlite3* database, char *user_username, char *user_password);
 int login(sqlite3* database, char *user_username, char *user_password);
-
 void create_new_film(sqlite3* database, char *film_title, int film_available_copies);
 void create_new_reservation(sqlite3* database, unsigned int reservation_user_id, unsigned int reservation_film_id);
+void send_all_films_to_client(int client_socket);
 
 //ausiliari
 int check_user_already_exists(char *user_username);
@@ -300,13 +300,6 @@ void* connection_handler(void* client_socket_arg){
 				}
 			}
 
-			/*
-			if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-				close(client_socket);
-				error_handler("[SERVER] Errore server write");
-			}
-			*/
-
 		} else if (strncmp(protocol_message, LOGIN_PROTOCOL_MESSAGE, strlen(LOGIN_PROTOCOL_MESSAGE)) == 0){
 
 			char user_username[MAX_USER_USERNAME_SIZE] = {0};
@@ -333,12 +326,12 @@ void* connection_handler(void* client_socket_arg){
 
 				if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 					close(client_socket);
-					error_handler("[SERVER] Errore server write");
+					error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
 				}
 
 				if(write(client_socket, &result, sizeof(result)) < 0){
 					close(client_socket);
-					error_handler("[SERVER] Errore server write");
+					error_handler("[SERVER] Errore scrittura USER id");
 				}
 
 			} else if (result == ERROR_USER_DOESNT_EXISTS){
@@ -347,7 +340,7 @@ void* connection_handler(void* client_socket_arg){
 
 				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 					close(client_socket);
-					error_handler("[SERVER] Errore server write");
+					error_handler("[SERVER] Errore scrittura FAILED_USER_DOESNT_EXISTS protocol message");
 				}
 
 			} else if (result == ERROR_USER_BAD_CREDENTIALS){
@@ -356,14 +349,18 @@ void* connection_handler(void* client_socket_arg){
 
 				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 					close(client_socket);
-					error_handler("[SERVER] Errore server write");
+					error_handler("[SERVER] Errore scrittura FAILED_USER_BAD_CREDENTIALS protocol message");
 				}
 
 			}
 
-		} else if (strncmp(protocol_message, GET_FILMS_PROTOCOL_MESSAGE, strlen(GET_FILMS_PROTOCOL_MESSAGE)) == 0){}	
-		else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE)) == 0){}
-		else if (strncmp(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE, strlen(RETURN_RENTED_FILM_PROTOCOL_MESSAGE)) == 0){}
+		} else if (strncmp(protocol_message, GET_FILMS_PROTOCOL_MESSAGE, strlen(GET_FILMS_PROTOCOL_MESSAGE)) == 0){
+
+			send_all_films_to_client(client_socket);
+
+		} else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE)) == 0){
+
+		} else if (strncmp(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE, strlen(RETURN_RENTED_FILM_PROTOCOL_MESSAGE)) == 0){}
 
 	}
 
@@ -371,7 +368,6 @@ void* connection_handler(void* client_socket_arg){
 
 	pthread_exit(NULL);
 }
-
 
 //gestione aggiunte liste
 user_t* add_user_to_user_list(unsigned int id, char *username, char *password){
@@ -901,7 +897,50 @@ int login(sqlite3* database, char *user_username, char *user_password){
 	return (int)logged_user->id;
 }
 
+void send_all_films_to_client(int client_socket){
 
+	char film_title[MAX_FILM_TITLE_SIZE] = {0};
+
+	pthread_mutex_lock(&film_list->films_mutex);
+
+	char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(success_message, SUCCESS_SERVER_RESPONSE);
+
+	if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+	}
+
+	for(int i = 0; i < film_list->dim; i++){
+
+		unsigned int film_id = film_list->films[i]->id;
+		strcpy(film_title, film_list->films[i]->title);
+		int film_available_copies = film_list->films[i]->available_copies;
+		int film_rented_out_copies = film_list->films[i]->rented_out_copies;
+
+		if(write(client_socket, &film_id, sizeof(film_id)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura FILM id");
+		}
+
+		if(write(client_socket, film_title, MAX_FILM_TITLE_SIZE) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura FILM title");
+		}
+
+		if(write(client_socket, &film_available_copies, sizeof(film_available_copies)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura FILM available_copies");
+		}
+
+		if(write(client_socket, &film_rented_out_copies, sizeof(film_rented_out_copies)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura FILM rented_out_copies");
+		}
+	}
+
+	pthread_mutex_lock(&film_list->films_mutex);
+}
 
 //ausiliari
 int check_user_already_exists(char *user_username){

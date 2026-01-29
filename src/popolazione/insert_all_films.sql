@@ -1,0 +1,1 @@
+INSERT INTO FILM(id, title, available_copies, rented_out_copies)
