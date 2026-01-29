@@ -188,6 +188,7 @@ void main_menu(int client_socket){
 	system("clear");
 
 	char get_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE];
+
 	if(write(client_socket, get_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 		printf("[CLIENT] Impossibile mandare il messaggio di protocollo: %s\n", get_films_protocol_command);
 		exit(-1);
