@@ -21,7 +21,9 @@
 #define RENT_FILM_PROTOCOL_MESSAGE  		"RENT_FILM"
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE	"RETURN_RENTED_FILM"
 
-#define SUCCESS_SERVER_RESPONSE				"SUCCESS"
+#define SUCCESS_REGISTER					"SUCCESS_REGISTER"
+#define SUCCESS_LOGIN						"SUCCESS_LOGIN"
+#define SUCCESS_GET_FILMS					"SUCCESS_GET_FILMS"
 #define FAILED_USER_ALREDY_EXISTS			"FAILED_USER_ALREADY_EXISTS"
 #define FAILED_USER_DOESNT_EXISTS			"FAILED_USER_DOESNT_EXISTS"
 #define FAILED_USER_BAD_CREDENTIALS			"FAILED_USER_BAD_CREDENTIALS"
@@ -62,6 +64,16 @@ int start_up_menu(void){
 	return choice;
 }
 
+void get_user_id(int client_socket){
+
+	if(read(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibilile leggere lo USER id\n");
+		exit(-1);
+	}
+
+	printf("[CLIENT] Assegnato USER id %u\n", user_id);
+}
+
 void check_server_respose(int client_socket){
 
 	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
@@ -71,11 +83,16 @@ void check_server_respose(int client_socket){
 		exit(-1);
 	}
 
-	if (strncmp(response, SUCCESS_SERVER_RESPONSE, strlen(SUCCESS_SERVER_RESPONSE)) == 0)
+	if (strncmp(response, SUCCESS_REGISTER, strlen(SUCCESS_REGISTER)) == 0)
 
-		printf("[CLIENT] Operazione avvenuta con successo!\n");
+		printf("[CLIENT] Registrazione avvenuta con successo!\n");
 	
-	else if (strncmp(response, FAILED_USER_ALREDY_EXISTS, strlen(FAILED_USER_ALREDY_EXISTS)) == 0)
+	else if (strncmp(response, SUCCESS_LOGIN, strlen(SUCCESS_LOGIN)) == 0) {
+
+		printf("[CLIENT] Login avvenuta con successo!\n");
+		get_user_id(client_socket);
+	
+	} else if (strncmp(response, FAILED_USER_ALREDY_EXISTS, strlen(FAILED_USER_ALREDY_EXISTS)) == 0)
 
 		printf("[CLIENT] L'username specificato già appartiene ad un altro utente!\n");
 
@@ -165,12 +182,6 @@ void login_user(int client_socket){
 
 	check_server_respose(client_socket);
 
-	if(read(client_socket, &user_id, sizeof(user_id)) < 0){
-		printf("[CLIENT] Impossibilile leggere lo USER id\n");
-		exit(-1);
-	}
-
-	printf("[CLIENT] Assegnato USER id %u\n", user_id);
 }
 
 void main_menu(int client_socket){

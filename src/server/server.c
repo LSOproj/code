@@ -32,7 +32,9 @@
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE			"RETURN_RENTED_FILM"
 
 //response
-#define SUCCESS_SERVER_RESPONSE						"SUCCESS"
+#define SUCCESS_REGISTER							"SUCCESS_REGISTER"
+#define SUCCESS_LOGIN								"SUCCESS_LOGIN"
+#define SUCCESS_GET_FILMS							"SUCCESS_GET_FILMS"
 #define FAILED_USER_ALREDY_EXISTS					"FAILED_USER_ALREADY_EXISTS"
 #define FAILED_USER_DOESNT_EXISTS					"FAILED_USER_DOESNT_EXISTS"
 #define FAILED_USER_BAD_CREDENTIALS					"FAILED_USER_BAD_CREDENTIALS"
@@ -277,7 +279,7 @@ void* connection_handler(void* client_socket_arg){
 
 
 			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-			strcpy(success_message, SUCCESS_SERVER_RESPONSE);
+			strcpy(success_message, SUCCESS_REGISTER);
 			
 			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
@@ -318,7 +320,7 @@ void* connection_handler(void* client_socket_arg){
 			int result = login(database, user_username, user_password);
 
 			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-			strcpy(success_message, SUCCESS_SERVER_RESPONSE);
+			strcpy(success_message, SUCCESS_LOGIN);
 
 			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
@@ -904,7 +906,7 @@ void send_all_films_to_client(int client_socket){
 	pthread_mutex_lock(&film_list->films_mutex);
 
 	char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-	strcpy(success_message, SUCCESS_SERVER_RESPONSE);
+	strcpy(success_message, SUCCESS_GET_FILMS);
 
 	if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 		close(client_socket);
