@@ -914,19 +914,19 @@ void send_all_films_to_client(int client_socket){
 		close(client_socket);
 		error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
 	}
+	
+	int films_dim = film_list->dim;
+	if(write(client_socket, &films_dim, sizeof(films_dim)) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Impossibile mandare il numero di film");
+	}
 
 	for(int i = 0; i < film_list->dim; i++){
 
-		int films_dim = film_list->dim;
 		unsigned int film_id = film_list->films[i]->id;
 		strcpy(film_title, film_list->films[i]->title);
 		int film_available_copies = film_list->films[i]->available_copies;
 		int film_rented_out_copies = film_list->films[i]->rented_out_copies;
-
-		if(write(client_socket, &films_dim, sizeof(films_dim)) < 0){
-			close(client_socket);
-			error_handler("[SERVER] Errore scrittura FILM dim");
-		}
 
 		if(write(client_socket, &film_id, sizeof(film_id)) < 0){
 			close(client_socket);
