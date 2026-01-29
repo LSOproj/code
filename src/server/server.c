@@ -1031,12 +1031,6 @@ void send_all_films_to_client(int client_socket){
 		close(client_socket);
 		error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
 	}
-	
-	int films_dim = film_list->dim;
-	if(write(client_socket, &films_dim, sizeof(films_dim)) < 0){
-		close(client_socket);
-		error_handler("[SERVER] Impossibile mandare il numero di film");
-	}
 
 	int films_dim = film_list->dim;
 	if(write(client_socket, &films_dim, sizeof(films_dim)) < 0){
