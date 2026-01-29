@@ -1,1 +1,16 @@
-INSERT INTO FILM(id, title, available_copies, rented_out_copies)
+INSERT INTO FILM (id, title, available_copies, rented_out_copies) VALUES 
+(1, 'Dune - Parte Due', 10, 2),
+(2, 'Oppenheimer', 8, 0),
+(3, 'Barbie', 8, 1),
+(4, 'Il Padrino', 5, 0),
+(5, 'Povere Creature!', 6, 2),
+(6, 'Matrix', 10, 0),
+(7, 'Interstellar', 7, 3),
+(8, 'La Città Incantata', 4, 0),
+(9, 'Killers of the Flower Moon', 5, 1),
+(10, 'Il Signore degli Anelli', 12, 0),
+(11, 'Fight Club', 4, 2),
+(12, 'The Truman Show', 3, 0),
+(13, 'Joker', 6, 1),
+(14, 'Gladiatore', 5, 0),
+(15, 'Avengers: Endgame', 10, 1);
