@@ -187,7 +187,9 @@ void login_user(int client_socket){
 void main_menu(int client_socket){
 	system("clear");
 
-	char get_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE];
+	char get_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(get_films_protocol_command, GET_FILMS_PROTOCOL_MESSAGE);
+
 	if(write(client_socket, get_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 		printf("[CLIENT] Impossibile mandare il messaggio di protocollo: %s\n", get_films_protocol_command);
 		exit(-1);
@@ -273,6 +275,9 @@ int main(){
 				break;
 			case 2:
 				login_user(client_socket);
+				break;
+			case 3:
+				main_menu(client_socket);
 				break;
 			case 0:
 				printf("Arrivederci\n");
