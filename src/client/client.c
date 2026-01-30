@@ -59,6 +59,12 @@ user_t user;
 film_t avaible_films[MAX_FILMS];
 cart_t cart;
 
+//MOMENTANEO, QUI SOLO PER TESTING
+//IL VALORE VERO SI PRENDE DAL SERVER
+//====================================================================================================================================
+int cart_cap = 5;
+//====================================================================================================================================
+
 // Function prototypes
 int start_up_menu(void);
 void get_user_id(int client_socket);
@@ -69,6 +75,8 @@ void get_all_films(int client_socket);
 void rent_movie(int client_socket);
 void print_films(void);
 void init_cart(void);
+void add_to_cart(int movie_id);
+void remove_from_cart(void);
 int get_movie_idx_by_id(int movie_id);
 
 void clear_screen(){
@@ -400,6 +408,20 @@ int get_movie_idx_by_id(int movie_id){
 	return -1;
 }
 
+int renting_menu(){
+	printf(
+			"1 - Scegli film.\n"
+			"2 - Vai al carrello.\n"
+			"0 - Exit\n"
+		  );
+	int choice = -1;
+
+	printf("Inserire un numero per proseguire: ");
+	scanf("%d", &choice);
+
+	return choice;
+}
+
 void rent_movie(int client_socket){
 
 	system("clear");
@@ -439,28 +461,46 @@ void rent_movie(int client_socket){
 
 		if(strncmp(choice, "s", 1) == 0){
 			// TODO: da rivedere
-			//add_to_cart(film_id_to_rent);
+			add_to_cart(film_id_to_rent);
 
-		} else if(strncmp(choice, "n", 1) == 0);
+		} else if(strncmp(choice, "n", 1) == 0)
+			continue;
 	}
 }
 
 void init_cart(void){
+	//teoricamente ogni volta al boot up 
+	//si salva il cap imposto dal venditore
 	cart.dim = 0;
 }
 
 void add_to_cart(int movie_id){
-	cart.film_id_to_rent[cart.dim] = movie_id;
 	if(cart.dim >= cart_cap)
 		printf("Impossibile aggiungere  al carrello, limite raggiunto.");
-	else
+	else{
+		cart.film_id_to_rent[cart.dim] = movie_id;
 		cart.dim++;
+	}
 }
 
 void remove_from_cart(void){
+	if(cart.dim <= 0){
+		printf("Il Carrello e' vuoto, nulla da rimuovere.\n");
+		return;
+	}
+
 	int movie_id;
 	printf("Inserire id del film da rimuovere: ");
 	scanf("%d", &movie_id);
 
+	int	movie_to_remove = get_movie_idx_by_id(movie_id);
 
+	if(movie_to_remove < 0)
+		printf("Non c'e' nessuno carrelo con id %d\n", movie_to_remove);
+	else{
+		for(int i = movie_to_remove; i < cart.dim-1; i++)
+			cart.film_id_to_rent[i] = cart.film_id_to_rent[i+1];
+		cart.film_id_to_rent[cart.dim] = 0;
+		cart.dim--;
+	}
 }
