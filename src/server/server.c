@@ -14,18 +14,19 @@
 #include <unistd.h>
 #include <limits.h>
 
-#define MAX_ACCEPTED_CLIENT 	50
-#define MAX_USERS 				100
-#define MAX_FILMS				100
-#define MAX_RESERVATIONS		100
-#define MAX_USER_USERNAME_SIZE	100
-#define MAX_USER_PASSWORD_SIZE	100
-#define MAX_FILM_TITLE_SIZE		100
-#define MAX_PATH				100
-#define RENTAL_DURATION_DAYS	30
-#define SECONDS_IN_DAY			(24 * 60 * 60)
-#define SHOPKEEPER_USERNAME		"negoziante"
-#define SHOPKEEPER_PASSWORD		"password"
+#define MAX_ACCEPTED_CLIENT 		50
+#define MAX_USERS 					100
+#define MAX_FILMS					100
+#define MAX_RESERVATIONS			100
+#define MAX_USER_USERNAME_SIZE		100
+#define MAX_USER_PASSWORD_SIZE		100
+#define MAX_FILM_TITLE_SIZE			100
+#define MAX_PATH					100
+#define RENTAL_DURATION_DAYS		30
+#define SECONDS_IN_DAY				(24 * 60 * 60)
+#define SHOPKEEPER_USERNAME			"negoziante"
+#define SHOPKEEPER_PASSWORD			"password"
+#define DEFAULT_MAX_RENTED_FILMS
 
 //protocol message definitions
 //requests
@@ -36,25 +37,25 @@
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE			"RETURN_RENTED_FILM"
 
 //response
-#define SUCCESS_REGISTER								"SUCCESS_REGISTER"
-#define SUCCESS_LOGIN									"SUCCESS_LOGIN"
-#define SUCCESS_GET_FILMS								"SUCCESS_GET_FILMS"
-#define FAILED_USER_ALREDY_EXISTS						"FAILED_USER_ALREADY_EXISTS"
-#define FAILED_USER_DOESNT_EXISTS						"FAILED_USER_DOESNT_EXISTS"
-#define FAILED_USER_BAD_CREDENTIALS						"FAILED_USER_BAD_CREDENTIALS"
-#define FAILED_RENT_FILM_NO_AVAILABLE_COPY				"FAILED_RENT_FILM_NO_AVAILABLE_COPY"
-#define FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT	"FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT"
-#define PROTOCOL_MESSAGE_MAX_SIZE 					50
+#define SUCCESS_REGISTER									"SUCCESS_REGISTER"
+#define SUCCESS_LOGIN										"SUCCESS_LOGIN"
+#define SUCCESS_GET_FILMS									"SUCCESS_GET_FILMS"
+#define FAILED_USER_ALREDY_EXISTS							"FAILED_USER_ALREADY_EXISTS"
+#define FAILED_USER_DOESNT_EXISTS							"FAILED_USER_DOESNT_EXISTS"
+#define FAILED_USER_BAD_CREDENTIALS							"FAILED_USER_BAD_CREDENTIALS"
+#define FAILED_RENT_FILM_NO_AVAILABLE_COPY					"FAILED_RENT_FILM_NO_AVAILABLE_COPY"
+#define FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT		"FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT"
+#define PROTOCOL_MESSAGE_MAX_SIZE 							50
 
 //semantic error definitions
-
 typedef enum server_error {
 
     ERROR_USER_DOESNT_EXISTS = -1,
     ERROR_USER_ALREADY_EXISTS = -2, 
     ERROR_USER_BAD_CREDENTIALS = -3,
 	ERROR_RENT_FILM_NO_AVAILABLE_COPY = -4,
-	ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT = -5
+	ERROR_RENT_ALREADY_EXISTS = -5,
+	ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT = -6
 
 } server_error_t;
 
@@ -179,6 +180,7 @@ int check_user_already_exists(char *user_username);
 int check_user_does_not_exists(char *user_username);
 int check_film_available_copies_less_than_or_equal_zero(unsigned int film_id);
 int check_film_rented_out_copies_less_than_or_equal_zero(unsigned int film_id);
+int check_user_already_rent_film(unsigned int user_id, unsigned int film_id);
 user_t* search_user_by_id(unsigned int user_id);
 user_t* search_user_by_username(char *user_username);
 user_t* search_user_by_username_and_password(char *user_username, char *user_password);
@@ -1099,6 +1101,15 @@ void send_all_films_to_client(int client_socket){
 int rent_film(sqlite3* database, unsigned int user_id, unsigned int film_id){
 
 	pthread_mutex_lock(&film_list->films_mutex);
+	pthread_mutex_lock(&reservation_list->reservations_mutex);
+
+	if(check_user_already_rent_film(user_id, film_id)){
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
+		pthread_mutex_unlock(&film_list->films_mutex);
+		return ERROR_RENT_ALREADY_EXISTS;
+	}
+
+	pthread_mutex_unlock(&reservation_list->reservations_mutex);
 
 	if((check_film_available_copies_less_than_or_equal_zero(film_id) == 1) || (check_film_available_copies_less_than_or_equal_zero(film_id) == -1)){
 		pthread_mutex_unlock(&film_list->films_mutex);
@@ -1172,6 +1183,24 @@ int check_user_does_not_exists(char *user_username){
 		return 0;
 }
 
+int check_user_already_rent_film(unsigned int user_id, unsigned int film_id){
+
+    for(int i = 0; i < reservation_list->dim; i++){
+
+        if(
+			reservation_list->reservations[i]->user_id == user_id
+			&&
+           	reservation_list->reservations[i]->film_id == film_id
+			&&
+           	reservation_list->reservations[i]->due_date == 0
+		)
+        	return 1;
+        
+    }
+
+    return 0;
+}
+
 int check_film_available_copies_less_than_or_equal_zero(unsigned int film_id){
 
 	film_t* film_to_serch = search_film_by_id(film_id);
@@ -1199,37 +1228,7 @@ int check_film_rented_out_copies_less_than_or_equal_zero(unsigned int film_id){
 
 	} else return -1;
 }
-/*
-int check_user_does_not_exists(sqlite3* database, char *user_username){
 
-	sqlite3_stmt* prepared;
-	const char *statement_sql = "SELECT * FROM USER WHERE username = ?;";
-	int user_does_not_exists_flag = 1;
-	
-	if(sqlite3_prepare_v2(database, statement_sql, -1, &prepared, NULL) != SQLITE_OK){
-		sqlite3_close(database);
-		error_handler("[SERVER] Errore select USER table sqlite");
-	}
-	
-	sqlite3_bind_text(prepared, 1, user_username, -1, SQLITE_STATIC);
-	
-	int database_result = sqlite3_step(prepared);
-
-	if(database_result == SQLITE_ROW){
-		printf("\n[SERVER] Trovato USER(%s) nella verifica della non esistenza.\n", user_username);
-		user_does_not_exists_flag = 0;
-	} else if (database_result == SQLITE_DONE){
-		printf("\n[SERVER] Nessun USER(%s) trovato nella verifica della non esistenza.\n", user_username);
-	} else {
-		sqlite3_close(database);
-		error_handler("[SERVER] Errore select USER table sqlite");
-	}
-	
-	sqlite3_finalize(prepared);
-
-	return user_does_not_exists_flag;
-}
-*/
 user_t* search_user_by_id(unsigned int user_id){
 
 	user_t* searched_user = NULL;
