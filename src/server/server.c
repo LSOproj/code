@@ -34,13 +34,14 @@
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE			"RETURN_RENTED_FILM"
 
 //response
-#define SUCCESS_REGISTER							"SUCCESS_REGISTER"
-#define SUCCESS_LOGIN								"SUCCESS_LOGIN"
-#define SUCCESS_GET_FILMS							"SUCCESS_GET_FILMS"
-#define FAILED_USER_ALREDY_EXISTS					"FAILED_USER_ALREADY_EXISTS"
-#define FAILED_USER_DOESNT_EXISTS					"FAILED_USER_DOESNT_EXISTS"
-#define FAILED_USER_BAD_CREDENTIALS					"FAILED_USER_BAD_CREDENTIALS"
-#define FAILED_RENT_FILM_NO_AVAILABLE_COPY			"FAILED_RENT_FILM_NO_AVAILABLE_COPY"	
+#define SUCCESS_REGISTER								"SUCCESS_REGISTER"
+#define SUCCESS_LOGIN									"SUCCESS_LOGIN"
+#define SUCCESS_GET_FILMS								"SUCCESS_GET_FILMS"
+#define FAILED_USER_ALREDY_EXISTS						"FAILED_USER_ALREADY_EXISTS"
+#define FAILED_USER_DOESNT_EXISTS						"FAILED_USER_DOESNT_EXISTS"
+#define FAILED_USER_BAD_CREDENTIALS						"FAILED_USER_BAD_CREDENTIALS"
+#define FAILED_RENT_FILM_NO_AVAILABLE_COPY				"FAILED_RENT_FILM_NO_AVAILABLE_COPY"
+#define FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT	"FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT"
 #define PROTOCOL_MESSAGE_MAX_SIZE 					50
 
 //semantic error definitions
@@ -50,6 +51,8 @@ typedef enum server_error {
     ERROR_USER_DOESNT_EXISTS = -1,
     ERROR_USER_ALREADY_EXISTS = -2, 
     ERROR_USER_BAD_CREDENTIALS = -3,
+	ERROR_RENT_FILM_NO_AVAILABLE_COPY = -4,
+	ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT = -5
 
 } server_error_t;
 
@@ -161,14 +164,15 @@ int login(sqlite3* database, char *user_username, char *user_password);
 void create_new_film(sqlite3* database, char *film_title, int film_available_copies);
 void create_new_reservation(sqlite3* database, unsigned int reservation_user_id, unsigned int reservation_film_id);
 void send_all_films_to_client(int client_socket);
-void rent_film();
-void return_rented_film();
+int rent_film(sqlite3* database, unsigned int film_id);
+int return_rented_film(sqlite3* database, unsigned int film_id);
 
 
 //ausiliari
 int check_user_already_exists(char *user_username);
 int check_user_does_not_exists(char *user_username);
-
+int check_film_available_copies_less_than_or_equal_zero(unsigned int film_id);
+int check_film_rented_out_copies_less_than_or_equal_zero(unsigned int film_id);
 user_t* search_user_by_id(unsigned int user_id);
 user_t* search_user_by_username(char *user_username);
 user_t* search_user_by_username_and_password(char *user_username, char *user_password);
@@ -1069,19 +1073,48 @@ void send_all_films_to_client(int client_socket){
 	pthread_mutex_unlock(&film_list->films_mutex);
 }
 
-void rent_film(unsigned int film_id){
+int rent_film(sqlite3* database, unsigned int film_id){
 
-    /*
-	check non 0 available_copy
-	film_t* decrement_film_available_copy_and_increment_film_rented_out_copy(unsigned int film_id);
-	*/
+	pthread_mutex_lock(&film_list->films_mutex);
+
+	if((check_film_available_copies_less_than_or_equal_zero(film_id) == 1) || (check_film_available_copies_less_than_or_equal_zero(film_id) == -1)){
+		pthread_mutex_unlock(&film_list->films_mutex);
+		return ERROR_RENT_FILM_NO_AVAILABLE_COPY;
+	}
+
+	if (decrement_film_available_copy_and_increment_film_rented_out_copy(film_id) == NULL){
+		pthread_mutex_unlock(&film_list->films_mutex);
+		return ERROR_RENT_FILM_NO_AVAILABLE_COPY;
+	}
+
+	database_film_remove_available_copy(database, film_id);
+	database_film_add_rented_out_copy(database, film_id);
+
+	pthread_mutex_unlock(&film_list->films_mutex);
+
+	return 1;
 }
 
-void return_rented_film(unsigned int film_id){
+int return_rented_film(sqlite3* database, unsigned int film_id){
 
-	/*
-	film_t* increment_film_available_copy_and_decrement_film_rented_out_copy(unsigned int film_id);
-	*/
+	pthread_mutex_lock(&film_list->films_mutex);
+
+	if((check_film_rented_out_copies_less_than_or_equal_zero(film_id) == 1) || (check_film_rented_out_copies_less_than_or_equal_zero(film_id) == -1)){
+		pthread_mutex_unlock(&film_list->films_mutex);
+		return ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT;
+	}
+
+	if (increment_film_available_copy_and_decrement_film_rented_out_copy(film_id) == NULL){
+		pthread_mutex_unlock(&film_list->films_mutex);
+		return ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT;
+	}
+
+	database_film_remove_rented_out_copy(database, film_id);
+	database_film_add_available_copy(database, film_id);
+
+	pthread_mutex_unlock(&film_list->films_mutex);
+
+	return 1;
 }
 
 //ausiliari
@@ -1105,6 +1138,33 @@ int check_user_does_not_exists(char *user_username){
 		return 0;
 }
 
+int check_film_available_copies_less_than_or_equal_zero(unsigned int film_id){
+
+	film_t* film_to_serch = search_film_by_id(film_id);
+
+	if(film_to_serch != NULL){
+
+		if(film_to_serch->available_copies <= 0)
+			return 1;
+		else
+			return 0;
+
+	} else return -1;
+}
+
+int check_film_rented_out_copies_less_than_or_equal_zero(unsigned int film_id){
+
+	film_t* film_to_serch = search_film_by_id(film_id);
+
+	if(film_to_serch != NULL){
+
+		if(film_to_serch->rented_out_copies > 0)
+			return 1;
+		else
+			return 0;
+
+	} else return -1;
+}
 /*
 int check_user_does_not_exists(sqlite3* database, char *user_username){
 
