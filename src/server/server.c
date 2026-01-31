@@ -26,7 +26,7 @@
 #define SECONDS_IN_DAY				(24 * 60 * 60)
 #define SHOPKEEPER_USERNAME			"negoziante"
 #define SHOPKEEPER_PASSWORD			"password"
-#define DEFAULT_MAX_RENTED_FILMS
+#define DEFAULT_MAX_RENTED_FILMS	5
 
 //protocol message definitions
 //requests
@@ -35,16 +35,29 @@
 #define GET_FILMS_PROTOCOL_MESSAGE  				"GET_FILMS"
 #define RENT_FILM_PROTOCOL_MESSAGE  				"RENT_FILM"
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE			"RETURN_RENTED_FILM"
+#define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 
 //response
-#define SUCCESS_REGISTER									"SUCCESS_REGISTER"
-#define SUCCESS_LOGIN										"SUCCESS_LOGIN"
-#define SUCCESS_GET_FILMS									"SUCCESS_GET_FILMS"
-#define FAILED_USER_ALREDY_EXISTS							"FAILED_USER_ALREADY_EXISTS"
-#define FAILED_USER_DOESNT_EXISTS							"FAILED_USER_DOESNT_EXISTS"
-#define FAILED_USER_BAD_CREDENTIALS							"FAILED_USER_BAD_CREDENTIALS"
-#define FAILED_RENT_FILM_NO_AVAILABLE_COPY					"FAILED_RENT_FILM_NO_AVAILABLE_COPY"
-#define FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT		"FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT"
+#define SUCCESS_REGISTER										"SUCCESS_REGISTER"
+#define SUCCESS_LOGIN											"SUCCESS_LOGIN"
+#define SUCCESS_GET_FILMS										"SUCCESS_GET_FILMS"
+#define SUCCESS_RENT_FILM										"SUCCESS_RENT_FILM"
+#define SUCCESS_RETURN_RENTED_FILM								"SUCCESS_RETURN_RENTEND_FILM"
+#define SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS				"SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
+
+#define FAILED_USER_ALREDY_EXISTS								"FAILED_USER_ALREADY_EXISTS"
+#define FAILED_USER_DOESNT_EXISTS								"FAILED_USER_DOESNT_EXISTS"
+#define FAILED_USER_BAD_CREDENTIALS								"FAILED_USER_BAD_CREDENTIALS"
+
+#define FAILED_RENT_FILM_MAX_ALLOWED							"FAILED_RENT_FILM_MAX_ALLOWED"
+#define FAILED_RENT_FILM_NO_AVAILABLE_COPY						"FAILED_RENT_FILM_NO_AVAILABLE_COPY"
+#define FAILED_RENT_ALREADY_EXISTS								"FAILED_RENT_ALREADY_EXISTS"
+
+#define FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT			"FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT"
+
+#define FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE		 	"FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE"
+#define FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED 	"FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED"
+
 #define PROTOCOL_MESSAGE_MAX_SIZE 							50
 
 //semantic error definitions
@@ -53,9 +66,15 @@ typedef enum server_error {
     ERROR_USER_DOESNT_EXISTS = -1,
     ERROR_USER_ALREADY_EXISTS = -2, 
     ERROR_USER_BAD_CREDENTIALS = -3,
-	ERROR_RENT_FILM_NO_AVAILABLE_COPY = -4,
-	ERROR_RENT_ALREADY_EXISTS = -5,
-	ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT = -6
+
+	ERROR_RENT_FILM_MAX_ALLOWED = -4,
+	ERROR_RENT_FILM_NO_AVAILABLE_COPY = -5,
+	ERROR_RENT_ALREADY_EXISTS = -6,
+	
+	ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT = -7,
+
+	ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE = -8,
+	ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED = -9
 
 } server_error_t;
 
@@ -118,11 +137,14 @@ typedef struct reservation_list_t {
 
 } reservation_list_t;
 
-//global lists
+//globals
 user_list_t *user_list;
 film_list_t *film_list;
 reservation_list_t *reservation_list;
 sqlite3 *database;
+
+int shopkeeper_max_rented_films_per_user = DEFAULT_MAX_RENTED_FILMS;
+pthread_mutex_t shopkeeper_max_rented_films_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //init global lists
 user_list_t* init_user_list();
@@ -173,7 +195,7 @@ void create_new_reservation(sqlite3* database, unsigned int reservation_user_id,
 void send_all_films_to_client(int client_socket);
 int rent_film(sqlite3* database, unsigned int user_id, unsigned int film_id);
 int return_rented_film(sqlite3* database, unsigned int user_id, unsigned int film_id);
-
+int shopkeeper_change_max_rented_films(unsigned int shopkeeper_id, int new_max_rented_films);
 
 //ausiliari
 int check_user_already_exists(char *user_username);
@@ -181,6 +203,9 @@ int check_user_does_not_exists(char *user_username);
 int check_film_available_copies_less_than_or_equal_zero(unsigned int film_id);
 int check_film_rented_out_copies_less_than_or_equal_zero(unsigned int film_id);
 int check_user_already_rent_film(unsigned int user_id, unsigned int film_id);
+int check_all_users_exceed_max_rented_film(int new_max_rented_films);
+int check_user_exceed_max_rented_film(unsigned int new_max_rented_films);
+int check_is_not_shopkeeper(unsigned int user_id);
 user_t* search_user_by_id(unsigned int user_id);
 user_t* search_user_by_username(char *user_username);
 user_t* search_user_by_username_and_password(char *user_username, char *user_password);
@@ -1100,16 +1125,26 @@ void send_all_films_to_client(int client_socket){
 
 int rent_film(sqlite3* database, unsigned int user_id, unsigned int film_id){
 
+	pthread_mutex_lock(&shopkeeper_max_rented_films_mutex);
 	pthread_mutex_lock(&film_list->films_mutex);
 	pthread_mutex_lock(&reservation_list->reservations_mutex);
+
+	if(check_user_exceed_max_rented_film(user_id)){
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
+		pthread_mutex_unlock(&film_list->films_mutex);
+		pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
+		return ERROR_RENT_FILM_MAX_ALLOWED;
+	}
 
 	if(check_user_already_rent_film(user_id, film_id)){
 		pthread_mutex_unlock(&reservation_list->reservations_mutex);
 		pthread_mutex_unlock(&film_list->films_mutex);
+		pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
 		return ERROR_RENT_ALREADY_EXISTS;
 	}
 
 	pthread_mutex_unlock(&reservation_list->reservations_mutex);
+    pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
 
 	if((check_film_available_copies_less_than_or_equal_zero(film_id) == 1) || (check_film_available_copies_less_than_or_equal_zero(film_id) == -1)){
 		pthread_mutex_unlock(&film_list->films_mutex);
@@ -1158,6 +1193,35 @@ int return_rented_film(sqlite3* database, unsigned int user_id, unsigned int fil
 
 	pthread_mutex_unlock(&reservation_list->reservations_mutex);
 	pthread_mutex_unlock(&film_list->films_mutex);
+
+	return 1;
+}
+
+int shopkeeper_change_max_rented_films(unsigned int shopkeeper_id, int new_max_rented_films){
+
+	pthread_mutex_lock(&shopkeeper_max_rented_films_mutex);
+	pthread_mutex_lock(&user_list->users_mutex);
+	pthread_mutex_lock(&reservation_list->reservations_mutex);
+
+	if(check_is_not_shopkeeper(shopkeeper_id)){
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
+		pthread_mutex_unlock(&user_list->users_mutex);
+		pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
+		return ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE;
+	}
+
+	if(check_all_users_exceed_max_rented_film(new_max_rented_films)){
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
+		pthread_mutex_unlock(&user_list->users_mutex);
+		pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
+		return ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED;
+	}
+
+	shopkeeper_max_rented_films_per_user = new_max_rented_films;
+
+	pthread_mutex_unlock(&reservation_list->reservations_mutex);
+	pthread_mutex_unlock(&user_list->users_mutex);
+	pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
 
 	return 1;
 }
@@ -1227,6 +1291,89 @@ int check_film_rented_out_copies_less_than_or_equal_zero(unsigned int film_id){
 			return 0;
 
 	} else return -1;
+}
+
+int check_all_users_exceed_max_rented_film(int new_max_rented_films){
+
+	int* user_reservations_count = (int*)calloc(user_list->dim, sizeof(int));
+	if(user_reservations_count == NULL)
+		error_handler("[SERVER] Errore allocazione dinamica user reservations count");
+
+	int exceeded = 0;
+
+    for(int i = 0; i < user_list->dim; i++){
+        
+        user_t* current_user = user_list->users[i];
+
+        for(int j = 0; j < reservation_list->dim; j++){
+            
+            reservation_t* current_reservation = reservation_list->reservations[j];
+
+            if(
+                current_reservation->user_id == current_user->id
+                &&
+                current_reservation->due_date == 0
+            ){
+                user_reservations_count[i]++;
+            }
+        }
+    }
+
+    for(int i = 0; i < user_list->dim; i++){
+        if(user_reservations_count[i] > new_max_rented_films){
+            exceeded = 1;
+            break;
+        }
+    }
+
+    free(user_reservations_count);
+
+	return exceeded;
+}
+
+int check_user_exceed_max_rented_film(unsigned int user_id){
+
+    user_t* current_user = search_user_by_id(user_id);
+	if(current_user == NULL)
+		return 1;
+
+	int exceeded = 0;    
+	int rented_films_count = 0;
+
+    for(int i = 0; i < reservation_list->dim; i++){
+
+        reservation_t* current_reservation = reservation_list->reservations[i];
+
+        if(
+            current_reservation->user_id == current_user->id
+            &&
+            current_reservation->due_date == 0
+        ){
+            rented_films_count++;
+        }
+
+		if(rented_films_count >= shopkeeper_max_rented_films_per_user){
+            exceeded = 1;
+            break; 
+        }
+    }
+
+	return exceeded;
+}
+
+int check_is_not_shopkeeper(unsigned int user_id){
+	
+	user_t* shopkeeper_to_check = search_user_by_id(user_id);
+	int is_not_shopkeeper = 1;
+
+	if(
+		shopkeeper_to_check != NULL
+		&&
+		strncmp(shopkeeper_to_check->username, SHOPKEEPER_USERNAME, MAX_USER_USERNAME_SIZE) == 0
+	)
+		is_not_shopkeeper = 0;
+
+	return is_not_shopkeeper;
 }
 
 user_t* search_user_by_id(unsigned int user_id){
