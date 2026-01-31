@@ -9,7 +9,7 @@ server:
 	$(CC) $(CFLAGS) $(SERVER_DIR)/server.c -o $(SERVER_DIR)/server -lsqlite3
 
 client:
-	$(CC) $(CFLAGS) $(CLIENT_DIR)/client.c -o $(CLIENT_DIR)/client
+	$(CC) $(CFLAGS) $(CLIENT_DIR)/client.c $(CLIENT_DIR)/client_logic.c $(CLIENT_DIR)/client_protocol.c -o $(CLIENT_DIR)/client
 
 # ho corretto il clear, prima cancellava i *.c ora è fixato. 
 clean:

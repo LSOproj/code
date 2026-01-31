@@ -7,52 +7,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include "client_protocol.h"
+#include "client_logic.h"
 
-// Macro utili per i per gli array di caratteri
-#define MAX_USER_USERNAME_SIZE	100
-#define MAX_USER_PASSWORD_SIZE	100
-#define MAX_FILM_TITLE_SIZE		100
-#define MAX_FILMS				100
-
-// Macro per il text protocol
-#define REGISTER_PROTOCOL_MESSAGE 			"REGISTER"
-#define LOGIN_PROTOCOL_MESSAGE 				"LOGIN"
-#define GET_FILMS_PROTOCOL_MESSAGE  		"GET_FILMS"
-#define RENT_FILM_PROTOCOL_MESSAGE  		"RENT_FILM"
-#define RETURN_RENTED_FILM_PROTOCOL_MESSAGE	"RETURN_RENTED_FILM"
-
-#define SUCCESS_REGISTER					"SUCCESS_REGISTER"
-#define SUCCESS_LOGIN						"SUCCESS_LOGIN"
-#define SUCCESS_GET_FILMS					"SUCCESS_GET_FILMS"
-#define FAILED_USER_ALREDY_EXISTS			"FAILED_USER_ALREADY_EXISTS"
-#define FAILED_USER_DOESNT_EXISTS			"FAILED_USER_DOESNT_EXISTS"
-#define FAILED_USER_BAD_CREDENTIALS			"FAILED_USER_BAD_CREDENTIALS"
-#define PROTOCOL_MESSAGE_MAX_SIZE			50
-
-typedef struct user_t {
-
-	int id;
-	char username[MAX_USER_USERNAME_SIZE];
-	char password[MAX_USER_PASSWORD_SIZE];
-
-} user_t;
-
-typedef struct film_t {
-
-	int id;
-	char title[MAX_FILM_TITLE_SIZE];
-	int available_copies;
-	int rented_out_copies;
-
-} film_t;
-
-typedef struct cart_t {
-
-	int film_id_to_rent[MAX_FILMS];
-	int dim; //capped by seller
-
-}cart_t;
-
+// Global variables definition
 int num_films_avaible;
 int user_id;
 user_t user;
@@ -67,19 +25,13 @@ int cart_cap = 5;
 
 // Function prototypes
 int start_up_menu(void);
-void get_user_id(int client_socket);
-int check_server_response(int client_socket);
 void register_user(int client_socket);
 void login_user(int client_socket);
 void get_all_films(int client_socket);
 void rental_menu(int client_socket);
 void print_films(void);
 void print_cart(void);
-void init_cart(void);
-void add_to_cart(int movie_id);
-void remove_from_cart(void);
-int get_movie_idx_by_id(int movie_id);
-void parse_film_ids(char *input, int *film_ids, int *count);
+int get_cart_count_by_id(int movie_id);
 
 void clear_screen(){
 #ifdef _WIN32
@@ -87,6 +39,13 @@ void clear_screen(){
 #else
 	system("clear");
 #endif
+}
+
+void show_main_view(void){
+	clear_screen();
+	print_films();
+	printf("\n=== CARRELLO ATTUALE ===\n");
+	print_cart();
 }
 
 int main(){
@@ -146,60 +105,6 @@ int start_up_menu(void){
 	return choice;
 }
 
-void get_user_id(int client_socket){
-
-	if(read(client_socket, &user_id, sizeof(user_id)) < 0){
-		printf("[CLIENT] Impossibilile leggere lo USER id\n");
-		exit(-1);
-	}
-
-	printf("[CLIENT] Assegnato USER id %u\n", user_id);
-}
-
-int check_server_response(int client_socket){
-
-	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-
-	if((read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE)) < 0){
-		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
-		exit(-1);
-	}
-
-	if (strncmp(response, SUCCESS_REGISTER, strlen(SUCCESS_REGISTER)) == 0){
-
-		printf("[CLIENT] Registrazione avvenuta con successo!\n");
-
-		return 0;
-
-	}else if (strncmp(response, SUCCESS_LOGIN, strlen(SUCCESS_LOGIN)) == 0) {
-
-		printf("[CLIENT] Login avvenuta con successo!\n");
-		get_user_id(client_socket);
-
-		return 0;
-
-	} else if (strncmp(response, FAILED_USER_ALREDY_EXISTS, strlen(FAILED_USER_ALREDY_EXISTS)) == 0){
-
-		printf("[CLIENT] L'username specificato già appartiene ad un altro utente!\n");
-		return -1;
-
-	}else if (strncmp(response, FAILED_USER_DOESNT_EXISTS, strlen(FAILED_USER_DOESNT_EXISTS)) == 0){
-
-		printf("[CLIENT] L'username specificato non appartiene a nessun utente!\n");
-		return -1;
-
-	}else if (strncmp(response, FAILED_USER_BAD_CREDENTIALS, strlen(FAILED_USER_BAD_CREDENTIALS)) == 0){
-
-
-		printf("[CLIENT] Credenziali errate!\n");
-		return -1;
-
-	}
-
-	return 0;
-
-}
-
 void register_user(int client_socket){
 	clear_screen();
 
@@ -252,8 +157,7 @@ void login_user(int client_socket){
 	printf("Inserisci username: ");
 	scanf("%s", username);
 
-
-	char password[MAX_USER_USERNAME_SIZE] = {0};
+	char password[MAX_USER_PASSWORD_SIZE] = {0};
 	printf("Inserisci password: ");
 	scanf("%s", password);
 
@@ -303,15 +207,41 @@ void print_cart(void){
 		printf("Il carrello e' vuoto.\n");
 		return;
 	}
-	printf("%-3s %-30s\n", "ID", "Title");
+	printf("%-3s %-30s %10s\n", "ID", "Title", "Qta");
 	printf("-----------------------------------------------------------------------\n");
+	int printed_ids[MAX_FILMS] = {0};
+	int printed_count = 0;
 	for(int i = 0; i < cart.dim; i++){
-		int idx = get_movie_idx_by_id(cart.film_id_to_rent[i]);
-		if(idx >= 0){
-			printf("%-3d %-30s\n", avaible_films[idx].id, avaible_films[idx].title);
+		int movie_id = cart.film_id_to_rent[i];
+		int already_printed = 0;
+		for(int j = 0; j < printed_count; j++){
+			if(printed_ids[j] == movie_id){
+				already_printed = 1;
+				break;
+			}
 		}
+		if(already_printed)
+			continue;
+
+		int idx = get_movie_idx_by_id(movie_id);
+		int qty = get_cart_count_by_id(movie_id);
+		if(idx >= 0){
+			printf("%-3d %-30s %10d\n", avaible_films[idx].id, avaible_films[idx].title, qty);
+		} else {
+			printf("%-3d %-30s %10d\n", movie_id, "(sconosciuto)", qty);
+		}
+		printed_ids[printed_count++] = movie_id;
 	}
 	printf("Numero film nel carrello: %d/%d\n", cart.dim, cart_cap);
+}
+
+int get_cart_count_by_id(int movie_id){
+	int count = 0;
+	for(int i = 0; i < cart.dim; i++){
+		if(cart.film_id_to_rent[i] == movie_id)
+			count++;
+	}
+	return count;
 }
 
 void get_all_films(int client_socket){
@@ -361,27 +291,11 @@ void get_all_films(int client_socket){
 	//rent_movie(client_socket);
 }
 
-/* Struttura carrello:
- * - array di int contente gli id dei film da affittare
- * - intero che indica la dimensione del carrello
- */
-
-int get_movie_idx_by_id(int movie_id){
-	int i = 0;
-	while(i < num_films_avaible){
-		if((avaible_films[i].id) == movie_id)
-			return i;
-		i++;
-	}
-
-	return -1;
-}
-
 int renting_menu(){
 	printf("\n=== MENU NOLEGGIO ===\n");
 	printf("1 - Inserisci ID film da noleggiare (separati da virgola, max 5)\n");
 	printf("2 - Mostra lista film\n");
-	printf("3 - Visualizza carrello\n");
+	printf("3 - Modifica carrello\n");
 	printf("4 - Logout\n");
 	int choice = -1;
 	printf("Inserire un numero per proseguire: ");
@@ -389,49 +303,29 @@ int renting_menu(){
 	return choice;
 }
 
-void parse_film_ids(char *input, int *film_ids, int *count){
-	*count = 0;
-	char temp[10];
-	int temp_idx = 0;
-	
-	for(int i = 0; input[i] != '\0' && *count < 5; i++){
-		if(input[i] == ',' || input[i] == ' '){
-			if(temp_idx > 0){
-				temp[temp_idx] = '\0';
-				film_ids[*count] = atoi(temp);
-				(*count)++;
-				temp_idx = 0;
-			}
-		} else {
-			temp[temp_idx++] = input[i];
-		}
-	}
-	if(temp_idx > 0){
-		temp[temp_idx] = '\0';
-		film_ids[*count] = atoi(temp);
-		(*count)++;
-	}
-}
-
 void rental_menu(int client_socket){
 	int choice;
-	int first_time = 1;
+	int films_shown = 0; // Indica se i film sono attualmente visualizzati
+
+	show_main_view();
+	films_shown = 1;
 	
 	while(1){
-		clear_screen();
-		
-		if(first_time){
-			print_films();
-			first_time = 0;
-		}
-		
 		choice = renting_menu();
 		
 		switch(choice){
 			case 1: {
 				// Inserire film da noleggiare
-				clear_screen();
-				print_films();
+				if(cart.dim >= cart_cap){
+					printf("Carrello pieno! Non è possibile aggiungere altri film.\n");
+					sleep(2);
+					break;
+				}
+				if(!films_shown){
+					show_main_view();
+					films_shown = 1;
+				}
+				show_main_view();
 				
 				printf("\nInserire gli ID dei film da noleggiare (separati da virgola):\n");
 				printf("Esempio: 1,3,5 oppure 2, 4, 7\n");
@@ -441,55 +335,137 @@ void rental_menu(int client_socket){
 				scanf(" %99[^\n]", film_input);
 				getchar(); // Consumare il newline rimasto
 				
-				int film_ids[5] = {0};
-				int count = 0;
-				parse_film_ids(film_input, film_ids, &count);
-				
-				if(count == 0){
+				if(film_input[0] == '\0'){
 					printf("Nessun ID inserito.\n");
 					sleep(1);
 					break;
 				}
 				
-				for(int i = 0; i < count; i++){
-					int idx = get_movie_idx_by_id(film_ids[i]);
-					if(idx < 0){
-						printf("ID %d non valido.\n", film_ids[i]);
-					} else if(cart.dim >= cart_cap){
-						printf("Carrello pieno! Non è possibile aggiungere altri film.\n");
-						break;
-					} else {
-						add_to_cart(film_ids[i]);
-						printf("Film '%s' aggiunto al carrello.\n", avaible_films[idx].title);
+				char *token = strtok(film_input, ",");
+				int found_any = 0;
+				while(token != NULL){
+					while(*token == ' ')
+						token++;
+					int movie_id = 0;
+					int requested = 0;
+					int parsed = sscanf(token, "%d(%d)", &movie_id, &requested);
+					if(parsed < 1 || movie_id <= 0){
+						token = strtok(NULL, ",");
+						continue;
 					}
+					found_any = 1;
+					int idx = get_movie_idx_by_id(movie_id);
+					if(idx < 0){
+						printf("ID %d non valido.\n", movie_id);
+						token = strtok(NULL, ",");
+						continue;
+					}
+					int to_add = (parsed == 2 && requested > 0) ? requested : 1;
+					int in_cart = get_cart_count_by_id(movie_id);
+					int disponibili = avaible_films[idx].available_copies - in_cart;
+					if(disponibili <= 0){
+						printf("Non ci sono copie disponibili per '%s'.\n", avaible_films[idx].title);
+						token = strtok(NULL, ",");
+						continue;
+					}
+					int slots = cart_cap - cart.dim;
+					int max_add = disponibili;
+					if(max_add > slots)
+						max_add = slots;
+					int to_add_effective = to_add;
+					if(to_add_effective > max_add)
+						to_add_effective = max_add;
+					for(int n = 0; n < to_add_effective; n++){
+						add_to_cart(movie_id);
+					}
+					if(to_add_effective > 0){
+						printf("Film '%s' aggiunto al carrello (x%d).\n", avaible_films[idx].title, to_add_effective);
+					}
+					if(to_add_effective < to_add){
+						int excess = to_add - to_add_effective;
+						printf("Copie in eccesso non aggiunte per '%s': %d\n", avaible_films[idx].title, excess);
+					}
+					token = strtok(NULL, ",");
+				}
+				if(!found_any){
+					printf("Nessun ID inserito.\n");
 				}
 				sleep(2);
+				show_main_view();
+				films_shown = 1;
 				break;
 			}
 			case 2: {
 				// Mostra lista film
-				clear_screen();
-				print_films();
-				printf("\nPremere INVIO per continuare...");
-				getchar(); // Consumare il newline rimasto
-				getchar();
+				show_main_view();
+				films_shown = 1;
 				break;
 			}
 			case 3: {
-				// Visualizza carrello
-				clear_screen();
-				printf("=== CARRELLO ===\n");
-				print_cart();
-				printf("\nPremere INVIO per continuare...\n");
-				getchar(); // Consumare il newline rimasto
-				getchar();
+				// Modifica carrello
+				while(1){
+					if(cart.dim == 0){
+						printf("Il carrello e' vuoto.\n");
+						sleep(1);
+						break;
+					}
+					clear_screen();
+					printf("=== MODIFICA CARRELLO ===\n");
+					print_cart();
+					printf("\n1 - Rimuovi film dal carrello\n");
+					printf("2 - Svuota carrello\n");
+					printf("0 - Torna al menu noleggio\n");
+					int sub_choice = -1;
+					printf("Scelta: ");
+					scanf("%d", &sub_choice);
+					getchar(); // Consumare il newline rimasto
+					if(sub_choice == 1){
+						if(cart.dim > 0){
+							printf("Inserire gli ID separati da virgola (es: 1,3(2),5)\n");
+							char report[512] = {0};
+							remove_from_cart(report, sizeof(report));
+							clear_screen();
+							printf("=== CARRELLO AGGIORNATO ===\n");
+							print_cart();
+							if(report[0] != '\0'){
+								printf("\nRimozioni:\n%s", report);
+							}
+						} else {
+							printf("Il carrello e' vuoto.\n");
+						}
+						printf("Premere INVIO per continuare...\n");
+						getchar();
+					} else if(sub_choice == 2){
+						cart.dim = 0;
+						clear_screen();
+						printf("Carrello svuotato.\n");
+						sleep(1);
+						break;
+					} else if(sub_choice == 0){
+						break;
+					} else {
+						printf("Scelta non valida.\n");
+						sleep(1);
+					}
+				}
+				show_main_view();
+				films_shown = 1;
 				break;
 			}
 			case 4: {
 				// Logout
-				printf("Logout in corso...\n");
-				cart.dim = 0;
-				return;
+				clear_screen();
+				printf("=== CARRELLO ===\n");
+				print_cart();
+				printf("\nConfermare il logout? (s/n): ");
+				char confirm;
+				scanf(" %c", &confirm);
+				if(confirm == 's' || confirm == 'S'){
+					printf("Logout in corso...\n");
+					cart.dim = 0;
+					return;
+				}
+				break;
 			}
 			default:
 				printf("Scelta non valida.\n");
@@ -498,39 +474,3 @@ void rental_menu(int client_socket){
 	}
 }
 
-void init_cart(void){
-	//teoricamente ogni volta al boot up 
-	//si salva il cap imposto dal venditore
-	cart.dim = 0;
-}
-
-void add_to_cart(int movie_id){
-	if(cart.dim >= cart_cap)
-		printf("Impossibile aggiungere  al carrello, limite raggiunto.");
-	else{
-		cart.film_id_to_rent[cart.dim] = movie_id;
-		cart.dim++;
-	}
-}
-
-void remove_from_cart(void){
-	if(cart.dim <= 0){
-		printf("Il Carrello e' vuoto, nulla da rimuovere.\n");
-		return;
-	}
-
-	int movie_id;
-	printf("Inserire id del film da rimuovere: ");
-	scanf("%d", &movie_id);
-
-	int	movie_to_remove = get_movie_idx_by_id(movie_id);
-
-	if(movie_to_remove < 0)
-		printf("Non c'e' nessuno carrelo con id %d\n", movie_to_remove);
-	else{
-		for(int i = movie_to_remove; i < cart.dim-1; i++)
-			cart.film_id_to_rent[i] = cart.film_id_to_rent[i+1];
-		cart.film_id_to_rent[cart.dim] = 0;
-		cart.dim--;
-	}
-}

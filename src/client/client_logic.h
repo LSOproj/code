@@ -1,0 +1,32 @@
+#ifndef CLIENT_LOGIC_H
+#define CLIENT_LOGIC_H
+
+#define MAX_FILMS				100
+#define MAX_FILM_TITLE_SIZE		100
+
+typedef struct film_t {
+	int id;
+	char title[MAX_FILM_TITLE_SIZE];
+	int available_copies;
+	int rented_out_copies;
+} film_t;
+
+typedef struct cart_t {
+	int film_id_to_rent[MAX_FILMS];
+	int dim; //capped by seller
+} cart_t;
+
+// Global variables
+extern int num_films_avaible;
+extern film_t avaible_films[MAX_FILMS];
+extern cart_t cart;
+extern int cart_cap;
+
+// Function prototypes
+void init_cart(void);
+void add_to_cart(int movie_id);
+void remove_from_cart(char *report, size_t report_size);
+int get_movie_idx_by_id(int movie_id);
+void parse_film_ids(char *input, int *film_ids, int *count);
+
+#endif
