@@ -15,6 +15,16 @@ void get_user_id(int client_socket){
 	}
 
 	printf("[CLIENT] Assegnato USER id %u\n", user_id);
+
+	/*
+	pid_t client_pid = getpid();
+	if(write(client_socket, &client_pid, sizeof(client_pid)) < 0){
+		printf("[CLIENT] Impossibile inviare pid %d del processo al server.\n", client_pid);
+		exit(-1);
+	}
+
+	printf("[CLIENT] Inviato pid %d al server.\n", client_pid);
+	*/
 }
 
 int check_server_response(int client_socket){

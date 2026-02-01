@@ -73,6 +73,13 @@ int main(){
 
 	printf("[CLIENT] Client connesso con succeso al server!\n");
 
+	pid_t client_pid = getpid();
+	if(write(client_socket, &client_pid, sizeof(client_pid)) < 0){
+		printf("[CLIENT] Impossibile inviare pid %d del processo al server.\n", client_pid);
+		exit(-1);
+	}
+
+	printf("[CLIENT] Inviato pid %d al server.\n", client_pid);
 	//system("clear");
 
 	while(1){	
@@ -165,17 +172,17 @@ void login_user(int client_socket){
 	strcpy(login_protocol_command, LOGIN_PROTOCOL_MESSAGE);
 
 	if(write(client_socket, login_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		printf("[CLIENT] Impossibile mandare il messaggio di protocollo %s\n", login_protocol_command);
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo %s\n", login_protocol_command);
 		exit(-1);
 	}
 
 	if(write(client_socket, username, MAX_USER_USERNAME_SIZE) < 0){
-		printf("[CLIENT] Impossibilile mandare il username\n");
+		printf("[CLIENT] Impossibilile inviare il username\n");
 		exit(-1);
 	}
 
 	if(write(client_socket, password, MAX_USER_PASSWORD_SIZE) < 0){
-		printf("[CLIENT] Impossibilile mandare la password\n");
+		printf("[CLIENT] Impossibilile inviare la password\n");
 		exit(-1);
 	}
 

@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <limits.h>
 
-#define MAX_ACCEPTED_CLIENT 		50
+#define MAX_CLIENTS 				50
 #define MAX_USERS 					100
 #define MAX_FILMS					100
 #define MAX_RESERVATIONS			100
@@ -30,12 +30,15 @@
 
 //protocol message definitions
 //requests
-#define REGISTER_PROTOCOL_MESSAGE 					"REGISTER"
-#define LOGIN_PROTOCOL_MESSAGE 						"LOGIN"
-#define GET_FILMS_PROTOCOL_MESSAGE  				"GET_FILMS"
-#define RENT_FILM_PROTOCOL_MESSAGE  				"RENT_FILM"
-#define RETURN_RENTED_FILM_PROTOCOL_MESSAGE			"RETURN_RENTED_FILM"
-#define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
+#define REGISTER_PROTOCOL_MESSAGE 									"REGISTER"
+#define LOGIN_PROTOCOL_MESSAGE 										"LOGIN"
+#define GET_FILMS_PROTOCOL_MESSAGE  								"GET_FILMS"
+#define RENT_FILM_PROTOCOL_MESSAGE  								"RENT_FILM"
+#define RETURN_RENTED_FILM_PROTOCOL_MESSAGE							"RETURN_RENTED_FILM"
+#define GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_MAX_RENTED_FILMS"
+#define GET_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE				"GET_EXPIRE_FILMS_NO_DUE_DATE" //DA FARE											
+#define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
+#define SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_NOTIFY_EXPIRED_FILMS"// DA FARE
 
 //response
 #define SUCCESS_REGISTER										"SUCCESS_REGISTER"
@@ -43,7 +46,9 @@
 #define SUCCESS_GET_FILMS										"SUCCESS_GET_FILMS"
 #define SUCCESS_RENT_FILM										"SUCCESS_RENT_FILM"
 #define SUCCESS_RETURN_RENTED_FILM								"SUCCESS_RETURN_RENTEND_FILM"
+#define SUCCESS_GET_MAX_RENTED_FILMS							"SUCCESS_GET_MAX_RENTED_FILMS"
 #define SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS				"SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
+#define SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS					"SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
 
 #define FAILED_USER_ALREDY_EXISTS								"FAILED_USER_ALREADY_EXISTS"
 #define FAILED_USER_DOESNT_EXISTS								"FAILED_USER_DOESNT_EXISTS"
@@ -58,7 +63,7 @@
 #define FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE		 	"FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE"
 #define FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED 	"FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED"
 
-#define PROTOCOL_MESSAGE_MAX_SIZE 							50
+#define PROTOCOL_MESSAGE_MAX_SIZE 								100
 
 //semantic error definitions
 typedef enum server_error {
@@ -77,6 +82,15 @@ typedef enum server_error {
 	ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED = -9
 
 } server_error_t;
+
+typedef struct connection_data {
+
+	unsigned int user_id;
+	pthread_t server_thread_tid;
+	pid_t client_pid;
+	int client_socket_fd;
+
+} connection_data_t;
 
 //data types
 typedef struct user_t {
@@ -106,6 +120,16 @@ typedef struct reservation_t {
 	unsigned int film_id;
 
 } reservation_t; 
+
+typedef struct connection_list_t {
+
+	connection_data_t* connections[MAX_CLIENTS];
+	int dim;
+	int in_idx;
+	int out_idx;
+	pthread_mutex_t connections_mutex;
+
+} connection_list_t;
 
 typedef struct user_list_t {
 
@@ -138,6 +162,7 @@ typedef struct reservation_list_t {
 } reservation_list_t;
 
 //globals
+connection_list_t *connection_list;
 user_list_t *user_list;
 film_list_t *film_list;
 reservation_list_t *reservation_list;
@@ -147,6 +172,7 @@ int shopkeeper_max_rented_films_per_user = DEFAULT_MAX_RENTED_FILMS;
 pthread_mutex_t shopkeeper_max_rented_films_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //init global lists
+connection_list_t* init_connection_list();
 user_list_t* init_user_list();
 film_list_t* init_film_list();
 reservation_list_t* init_reservation_list();
@@ -155,11 +181,14 @@ reservation_list_t* init_reservation_list();
 void init_shopkeeper(sqlite3* database);
 
 //aggiunte alle liste globali
+connection_data_t* add_connection_to_connection_list(unsigned int user_id, pthread_t server_thread_tid, pid_t client_pid, int client_socket_fd);
 user_t* add_user_to_user_list(unsigned int id, char *username, char *password);
 film_t* add_film_to_film_list(unsigned int id, char *title, int available_copies, int rented_out_copies);
 reservation_t* add_reservation_to_reservation_list(unsigned int id, time_t rental_date, time_t expiring_date, time_t due_date, unsigned int user_id, unsigned int film_id);
+
 film_t* increment_film_available_copy_and_decrement_film_rented_out_copy(unsigned int film_id);
 film_t* decrement_film_available_copy_and_increment_film_rented_out_copy(unsigned int film_id);
+void update_connection_user_id(int new_user_id, pid_t client_pid);
 void update_reservation_due_date(unsigned int reservation_id, time_t reservation_due_date);
 
 //database connection
@@ -195,6 +224,7 @@ void create_new_reservation(sqlite3* database, unsigned int reservation_user_id,
 void send_all_films_to_client(int client_socket);
 int rent_film(sqlite3* database, unsigned int user_id, unsigned int film_id);
 int return_rented_film(sqlite3* database, unsigned int user_id, unsigned int film_id);
+int get_max_rented_films();
 int shopkeeper_change_max_rented_films(unsigned int shopkeeper_id, int new_max_rented_films);
 
 //ausiliari
@@ -206,10 +236,11 @@ int check_user_already_rent_film(unsigned int user_id, unsigned int film_id);
 int check_all_users_exceed_max_rented_film(int new_max_rented_films);
 int check_user_exceed_max_rented_film(unsigned int new_max_rented_films);
 int check_is_not_shopkeeper(unsigned int user_id);
+
+connection_data_t* search_connection_by_client_pid(pid_t client_pid);
 user_t* search_user_by_id(unsigned int user_id);
 user_t* search_user_by_username(char *user_username);
 user_t* search_user_by_username_and_password(char *user_username, char *user_password);
-
 film_t* search_film_by_id(unsigned int film_id);
 reservation_t* search_reservation_by_id(unsigned int reservation_id);
 
@@ -238,6 +269,7 @@ int main(){
 	user_list = init_user_list();
 	film_list = init_film_list();
 	reservation_list = init_reservation_list();
+	connection_list = init_connection_list();
 
 	database_user_list_sync(database);
 	database_film_list_sync(database);
@@ -266,7 +298,7 @@ int main(){
 
 	printf("\n[SERVER] Successo socket bind.\n");
 
-	if(listen(server_socket, MAX_ACCEPTED_CLIENT) < 0)
+	if(listen(server_socket, MAX_CLIENTS) < 0)
 		error_handler("[SERVER] Errore listen socket");
 
 	printf("\n[SERVER] Successo socket listen.\n");
@@ -290,7 +322,6 @@ int main(){
 			free(client_socket);
 			error_handler("[SERVER] Errore creazione thread");
 		}
-
 	}
 
 	close(server_socket);
@@ -310,6 +341,16 @@ void* connection_handler(void* client_socket_arg){
 	int client_socket = *(int*)client_socket_arg;
 	free(client_socket_arg);
 
+	pid_t client_pid;
+	if(read(client_socket, &client_pid, sizeof(client_pid)) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Errore lettura CLIENT pid");
+	}
+
+	printf("\n[SERVER] Ottenuto il pid %d del client.\n", client_pid);
+
+	add_connection_to_connection_list(0, pthread_self(), client_pid, client_socket);
+
 	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
 	while(read(client_socket, protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) > 0){
@@ -328,7 +369,6 @@ void* connection_handler(void* client_socket_arg){
 				close(client_socket);
 				error_handler("[SERVER] Errore lettura USER password da socket");
 			}
-
 
 			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 			strcpy(success_message, SUCCESS_REGISTER);
@@ -369,26 +409,36 @@ void* connection_handler(void* client_socket_arg){
 				error_handler("[SERVER] Errore lettura USER password da socket");
 			}
 
-			int result = login(database, user_username, user_password);
+			int user_id = login(database, user_username, user_password);
 
 			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 			strcpy(success_message, SUCCESS_LOGIN);
 
 			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
-			if(result > 0){
+			if(user_id > 0){
 
 				if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 					close(client_socket);
 					error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
 				}
 
-				if(write(client_socket, &result, sizeof(result)) < 0){
+				if(write(client_socket, &user_id, sizeof(user_id)) < 0){
 					close(client_socket);
 					error_handler("[SERVER] Errore scrittura USER id");
 				}
 
-			} else if (result == ERROR_USER_DOESNT_EXISTS){
+				/*
+				if(read(client_socket, &client_pid, sizeof(client_pid)) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore lettura CLIENT pid");
+				}
+				*/
+
+				//update connection user id with searching client pid
+				update_connection_user_id(user_id, client_pid);
+
+			} else if (user_id == ERROR_USER_DOESNT_EXISTS){
 
 				strcpy(error_message, FAILED_USER_DOESNT_EXISTS);
 
@@ -397,7 +447,7 @@ void* connection_handler(void* client_socket_arg){
 					error_handler("[SERVER] Errore scrittura FAILED_USER_DOESNT_EXISTS protocol message");
 				}
 
-			} else if (result == ERROR_USER_BAD_CREDENTIALS){
+			} else if (user_id == ERROR_USER_BAD_CREDENTIALS){
 
 				strcpy(error_message, FAILED_USER_BAD_CREDENTIALS);
 
@@ -416,8 +466,169 @@ void* connection_handler(void* client_socket_arg){
 
 		} else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE)) == 0){
 
-		} else if (strncmp(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE, strlen(RETURN_RENTED_FILM_PROTOCOL_MESSAGE)) == 0){}
+			unsigned int user_id;
+			unsigned int film_id;
 
+			if(read(client_socket, &user_id, sizeof(user_id)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura USER id da socket");
+			}
+
+			if(read(client_socket, &film_id, sizeof(film_id)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura FILM id da socket");
+			}
+
+			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+			strcpy(success_message, SUCCESS_RENT_FILM);
+
+			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+			int result = rent_film(database, user_id, film_id);
+
+			if(result > 0){
+
+				if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+				}
+
+			} else if (result == ERROR_RENT_ALREADY_EXISTS){
+
+				strcpy(error_message, FAILED_RENT_ALREADY_EXISTS);
+
+				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura FAILED_RENT_ALREADY_EXISTS protocol message");
+				}
+
+			} else if (result == ERROR_RENT_FILM_NO_AVAILABLE_COPY){
+
+				strcpy(error_message, FAILED_RENT_FILM_NO_AVAILABLE_COPY);
+
+				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura FAILED_RENT_FILM_NO_AVAILABLE_COPY protocol message");
+				}
+
+			} else if (result == ERROR_RENT_FILM_MAX_ALLOWED){
+
+				strcpy(error_message, FAILED_RENT_FILM_MAX_ALLOWED);
+
+				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura FAILED_RENT_FILM_MAX_ALLOWED protocol message");
+				}
+			}
+
+		} else if (strncmp(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE, strlen(RETURN_RENTED_FILM_PROTOCOL_MESSAGE)) == 0){
+
+			unsigned int user_id;
+			unsigned int film_id;
+
+			if(read(client_socket, &user_id, sizeof(user_id)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura USER id da socket");
+			}
+
+			if(read(client_socket, &film_id, sizeof(film_id)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura FILM id da socket");
+			}
+
+			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+			strcpy(success_message, SUCCESS_RETURN_RENTED_FILM);
+
+			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+			int result = return_rented_film(database, user_id, film_id);
+
+			if(result > 0){
+
+				if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+				}
+
+			} else if (result == ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT){
+
+				strcpy(error_message, FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT);
+
+				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura FAILED_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT protocol message");
+				}
+
+			}
+
+		} else if (strncmp(protocol_message, GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE, strlen(GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE)) == 0){
+
+			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+			strcpy(success_message, SUCCESS_GET_MAX_RENTED_FILMS);
+
+			int max_rented_films = get_max_rented_films();
+
+			if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+			}
+
+			if(write(client_socket, &max_rented_films, sizeof(int)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore scrittura MAX_RENTED_FILMS");
+			}
+			
+		} else if (strncmp(protocol_message, SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE, strlen(SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE)) == 0){
+
+			unsigned int shopkeeper_id;
+			int new_max_rented_films;
+
+			if(read(client_socket, &shopkeeper_id, sizeof(shopkeeper_id)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura SHOPKEEPER(USER) id da socket");
+			}
+
+			if(read(client_socket, &new_max_rented_films, sizeof(new_max_rented_films)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura NEW_MAX_RENTED_FILMS da socket");
+			}
+
+			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+			strcpy(success_message, SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS);
+
+			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+			int result = shopkeeper_change_max_rented_films(shopkeeper_id, new_max_rented_films);
+
+			if(result > 0){
+
+				if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+
+			} else if (result == ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE){
+
+				strcpy(error_message, FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE);
+
+				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE protocol message");
+				}
+
+			} else if (result == ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED){
+
+				strcpy(error_message, FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED);
+
+				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED protocol message");
+				}
+			}
+
+		} else if (strncmp(protocol_message, SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE, strlen(SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE)) == 0){
+
+			//da implementare
+		}
 	}
 
 	close(client_socket);
@@ -426,6 +637,36 @@ void* connection_handler(void* client_socket_arg){
 }
 
 //gestione aggiunte liste
+connection_data_t* add_connection_to_connection_list(unsigned int user_id, pthread_t server_thread_tid, pid_t client_pid, int client_socket_fd){
+
+	pthread_mutex_lock(&connection_list->connections_mutex);
+
+	if(connection_list->dim >= MAX_CLIENTS){
+		pthread_mutex_unlock(&connection_list->connections_mutex);
+		printf("\n[SERVER] Raggiunto il numero massimo di CLIENT supportati, inserimento ignorato.\n");
+		return NULL;
+	}
+
+	connection_data_t *connection_to_insert = (connection_data_t *)malloc(sizeof(connection_data_t));
+	if(connection_to_insert == NULL){
+		pthread_mutex_unlock(&connection_list->connections_mutex);
+		error_handler("[SERVER] Errore allocazione dinamica inserimento CONNECTION");
+	}
+
+	connection_to_insert->user_id = user_id;
+	connection_to_insert->server_thread_tid = server_thread_tid;
+	connection_to_insert->client_pid = client_pid;
+	connection_to_insert->client_socket_fd = client_socket_fd;
+
+	connection_list->connections[connection_list->in_idx] = connection_to_insert;
+	connection_list->in_idx = (connection_list->in_idx + 1) % MAX_CLIENTS;
+	connection_list->dim = connection_list->dim + 1;
+
+	pthread_mutex_unlock(&connection_list->connections_mutex);
+
+	return connection_to_insert;
+}
+
 user_t* add_user_to_user_list(unsigned int id, char *username, char *password){
 
 	if(user_list->dim >= MAX_USERS){
@@ -549,6 +790,18 @@ film_t* decrement_film_available_copy_and_increment_film_rented_out_copy(unsigne
 	return film_to_update;
 }
 
+void update_connection_user_id(int new_user_id, pid_t client_pid){
+	pthread_mutex_lock(&connection_list->connections_mutex);
+
+	connection_data_t* connection_to_update = search_connection_by_client_pid(client_pid);
+
+	if(connection_to_update != NULL){
+		connection_to_update->user_id = new_user_id;
+	}
+
+	pthread_mutex_unlock(&connection_list->connections_mutex);
+}
+
 void update_reservation_due_date(unsigned int reservation_id, time_t reservation_due_date){
 
 	reservation_t* reservation_to_update = search_reservation_by_id(reservation_id);
@@ -559,6 +812,22 @@ void update_reservation_due_date(unsigned int reservation_id, time_t reservation
 }
 
 //init global data list
+connection_list_t* init_connection_list(){
+
+	connection_list_t *list = (connection_list_t *)malloc(sizeof(connection_list_t));
+	if(list == NULL)
+		error_handler("[SERVER] Errore di allocazione dinamica connections list");
+	
+	list->dim = 0;
+	list->in_idx = 0;
+	list->out_idx = 0;
+
+	if(pthread_mutex_init(&list->connections_mutex, NULL) != 0)
+		error_handler("[SERVER] Errore di allocazione dinamica connection list mutex");
+
+	return list;
+}
+
 user_list_t* init_user_list(){
 
 	user_list_t *list = (user_list_t *)malloc(sizeof(user_list_t));
@@ -1197,6 +1466,17 @@ int return_rented_film(sqlite3* database, unsigned int user_id, unsigned int fil
 	return 1;
 }
 
+int get_max_rented_films(){
+
+	pthread_mutex_lock(&shopkeeper_max_rented_films_mutex);
+
+	int max_rented_films = shopkeeper_max_rented_films_per_user;
+
+	pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
+
+	return max_rented_films;
+}
+
 int shopkeeper_change_max_rented_films(unsigned int shopkeeper_id, int new_max_rented_films){
 
 	pthread_mutex_lock(&shopkeeper_max_rented_films_mutex);
@@ -1374,6 +1654,20 @@ int check_is_not_shopkeeper(unsigned int user_id){
 		is_not_shopkeeper = 0;
 
 	return is_not_shopkeeper;
+}
+
+connection_data_t* search_connection_by_client_pid(pid_t client_pid){
+
+	connection_data_t* searched_connection = NULL;
+
+	for(int i = 0; i < connection_list->dim; i++){
+		if(connection_list->connections[i]->client_pid == client_pid){
+			searched_connection = connection_list->connections[i];
+			break;
+		}
+	}
+
+	return searched_connection;
 }
 
 user_t* search_user_by_id(unsigned int user_id){

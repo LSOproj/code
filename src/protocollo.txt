@@ -2,7 +2,7 @@ Il senso generale è che il client scrive queste stringhe (prima del "-->") sull
 
 CLIENT                                                  SERVER                                                                                  CLIENT
 ===========================================================================================================================================================
-REGISTER username password                 |-write->    reazione utente         |-write->     SUCCESS                                               <-read-| 
+REGISTER username password                 |-write->    reazione utente         |-write->     OK                                                    <-read-| 
 LOGIN username password                    |-write->    controllo utente        |-write->     OK user_id                                            <-read-|
 GET FILMS                                  |-write->    return film_t[]         |-write->     OK film_id title available_copies rented_out_copies   <-read-|
 SELECT user_id film_id[]                   |-write->!!                          |-write->     OK 
@@ -15,3 +15,8 @@ OK
 
 CHECKOUT
 id titolo copie1 copie2
+
+
+REGISTER
+username
+password
