@@ -606,21 +606,16 @@ void shopkeeper_menu(int client_socket){
 
 	int choice = -1;
 
-	// printf("1) Invia notifica per film non restituiti.\n");
-	// printf("2) Imposta limite del carrello.\n");
-	// printf("Scelta: ");
-	// scanf("%d", &choice);
-	// getchar(); // consuma \n
-
 	while(choice != 3){
 		printf("1) Invia notifica per film non restituiti.\n");
 		printf("2) Imposta limite del carrello.\n");
+		printf("3) Esci.\n");
 		printf("Scelta: ");
 		scanf("%d", &choice);
 		getchar(); // consuma \n
 		switch(choice){
 			case 1:
-				// notify_users(client_socket);
+				shopkeeper_notify_expired_films(client_socket);
 				break;
 			case 2:
 				set_cap_films(client_socket);
