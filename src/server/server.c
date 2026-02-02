@@ -1179,6 +1179,7 @@ int database_reservation_insert(sqlite3* database, time_t reservation_rental_dat
 		printf("\n[SERVER] Inserito RESERVATION(%lld, %lld, %d, %d).\n", (long long)reservation_rental_date, (long long)reservation_expiring_date, reservation_user_id, reservation_film_id);
 	} else {
 		sqlite3_close(database);
+		printf("[SERVER-DB] Step error: %s\n", sqlite3_errmsg(database));
 		error_handler("[SERVER] Errore inserimento RESERVATION table sqlite");
 	}
 	
