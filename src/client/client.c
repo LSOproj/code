@@ -42,6 +42,9 @@ void print_films(void);
 void print_cart(void);
 int get_cart_count_by_id(int movie_id);
 
+
+void shopkeeper_menu(int client_socket);
+
 void clear_screen(){
 #ifdef _WIN32
 	system("cls");
@@ -205,9 +208,14 @@ void login_user(int client_socket){
 		return;
 	}
 
-	init_cart();
 	get_all_films(client_socket);
-	rental_menu(client_socket);
+
+	if(strncmp(username, "negoziante", 11)){
+		// shopkeeper_menu(client_socket);
+	}else{
+		init_cart();
+		rental_menu(client_socket);
+	}
 }
 
 void print_films(void){
@@ -547,4 +555,34 @@ void get_all_user_expired_films_with_no_due_date(int signum){
 
 void shopkeeper_notify_expired_films(int client_socket){
 
+}
+
+void shopkeeper_menu(int client_socket){
+
+	int choice = -1;
+
+	printf("1) Invia notifica per film non restituiti.\n");
+	printf("2) Imposta limite del carrello.\n");
+	printf("Scelta: ");
+	scanf("%d", &choice);
+	getchar(); // consuma \n
+
+	while(1){
+		switch(choice){
+			case 1:
+				// notify_users(client_socket);
+				break;
+			case 2:
+				// set_cap_cart(client_socket);
+				break;
+			default:
+				printf("Scelta non valida.\n");
+		}
+	}	
+}
+
+void notify_users(int client_socket){
+}
+
+void set_cap_cart(int client_socket){
 }
