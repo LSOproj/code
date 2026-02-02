@@ -51,7 +51,7 @@ typedef struct user_t {
 } user_t;
 
 // Global variables
-extern int user_id;
+extern unsigned int user_id;
 extern user_t user;
 
 // Function prototypes

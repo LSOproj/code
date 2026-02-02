@@ -931,8 +931,10 @@ reservation_list_t* init_reservation_list(){
 
 //creazione tabelle database
 void database_connection_init(sqlite3 **database){
+
 	char exe_path[MAX_PATH];
     char db_full_path[MAX_PATH];
+
 
     //Prende come riferimento l'eseguibile""
     ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
@@ -954,6 +956,7 @@ void database_connection_init(sqlite3 **database){
     }
     
     printf("[SERVER] Database aperto con successo in: %s\n", db_full_path);
+
 }
 
 void database_user_table_init(sqlite3* database){
@@ -1350,14 +1353,12 @@ void create_new_film(sqlite3* database, char *film_title, int film_available_cop
 
 void create_new_reservation(sqlite3* database, unsigned int reservation_user_id, unsigned int reservation_film_id){
 
-	pthread_mutex_lock(&reservation_list->reservations_mutex);
 
 	time_t reservation_rental_date = time(NULL);
 	time_t reservation_expiring_date = reservation_rental_date + (RENTAL_DURATION_DAYS * SECONDS_IN_DAY);
 	int reservation_id_result = database_reservation_insert(database, reservation_rental_date, reservation_expiring_date, reservation_user_id, reservation_film_id);
 
 	if(reservation_id_result == -1){
-		pthread_mutex_unlock(&reservation_list->reservations_mutex);
 		error_handler("[SERVER] Errore creazione nuova RESERVATION");
 	}
 
@@ -1366,11 +1367,9 @@ void create_new_reservation(sqlite3* database, unsigned int reservation_user_id,
 	if(add_reservation_to_reservation_list(reservation_id, reservation_rental_date, reservation_expiring_date, 0, reservation_user_id, reservation_film_id) != NULL){
 		printf("\n[SERVER] Nuova RESERVATION(%u, %lld, %lld, %u, %u) sincronizzata in memoria.\n", reservation_id, (long long)reservation_rental_date, (long long)reservation_expiring_date, reservation_user_id, reservation_film_id);
 	} else {
-		pthread_mutex_unlock(&reservation_list->reservations_mutex);
 		error_handler("[SERVER] RESERVATION salvata sul database ma lista piena in memoria. La RESERVATION esiste ma non è in memoria");
 	}
 
-	pthread_mutex_unlock(&reservation_list->reservations_mutex);
 }
 
 int login(sqlite3* database, char *user_username, char *user_password){
@@ -1605,16 +1604,18 @@ int rent_film(sqlite3* database, unsigned int user_id, unsigned int film_id){
 		return ERROR_RENT_ALREADY_EXISTS;
 	}
 
-	pthread_mutex_unlock(&reservation_list->reservations_mutex);
-    pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
 
 	if((check_film_available_copies_less_than_or_equal_zero(film_id) == 1) || (check_film_available_copies_less_than_or_equal_zero(film_id) == -1)){
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
 		pthread_mutex_unlock(&film_list->films_mutex);
+		pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
 		return ERROR_RENT_FILM_NO_AVAILABLE_COPY;
 	}
 
 	if (decrement_film_available_copy_and_increment_film_rented_out_copy(film_id) == NULL){
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
 		pthread_mutex_unlock(&film_list->films_mutex);
+		pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
 		return ERROR_RENT_FILM_NO_AVAILABLE_COPY;
 	}
 
@@ -1623,7 +1624,9 @@ int rent_film(sqlite3* database, unsigned int user_id, unsigned int film_id){
 
 	create_new_reservation(database, user_id, film_id);
 
+	pthread_mutex_unlock(&reservation_list->reservations_mutex);
 	pthread_mutex_unlock(&film_list->films_mutex);
+    pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
 
 	return 1;
 }
