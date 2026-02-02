@@ -44,8 +44,8 @@ void print_films(void);
 void print_cart(void);
 int get_cart_count_by_id(int movie_id);
 
-
 void shopkeeper_menu(int client_socket);
+void set_cap_cart(int client_socket);
 
 void clear_screen(){
 #ifdef _WIN32
@@ -607,7 +607,7 @@ void shopkeeper_menu(int client_socket){
 				// notify_users(client_socket);
 				break;
 			case 2:
-				// set_cap_cart(client_socket);
+				set_cap_cart(client_socket);
 				break;
 			default:
 				printf("Scelta non valida.\n");
@@ -615,8 +615,33 @@ void shopkeeper_menu(int client_socket){
 	}	
 }
 
-void notify_users(int client_socket){
-}
-
 void set_cap_cart(int client_socket){
+
+	int new_cart_cap; 
+
+	printf("A quanto si vuole impostare il nuovo limite di film da affittare: ");
+	scanf("%d", &new_cart_cap);
+	getchar(); // Consuma il \n
+
+
+	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(protocol_message, SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE);
+
+	// Invio il messaggio di protocollo per cambiare il cap dei film "affitabili"
+	if(write(client_socket, protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo.\n");
+		exit(-1);
+	}
+
+	// Invio il nuovo limite di film affitabili
+	if(write(client_socket, &new_cart_cap, sizeof(new_cart_cap)) < 0){
+		printf("[CLIENT] Impossibile inviare il nuovo limite per i film.\n");
+		exit(-1);
+	}
+
+	if(check_server_response(client_socket) < 0){
+		printf("[CLIENT] Non e' stato possibile impostare il nuovo limite per i film.\n");
+		exit(-1);
+	}else cart_cap = new_cart_cap;
+
 }
