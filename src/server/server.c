@@ -36,11 +36,11 @@
 #define GET_FILMS_PROTOCOL_MESSAGE  								"GET_FILMS"
 #define RENT_FILM_PROTOCOL_MESSAGE  								"RENT_FILM"
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE							"RETURN_RENTED_FILM"
-#define GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_MAX_RENTED_FILMS"
-#define GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE			"GET_USER_EXPIRED_FILMS_NO_DUE_DATE" //DA FARE
-																										//GET USER FILMS
+#define GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_USER_RENTED_FILMS"
+#define GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_MAX_RENTED_FILMS" //DA FARE SOLO SUL CLIENT
+#define GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE			"GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
-#define SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_NOTIFY_EXPIRED_FILMS"// DA FARE
+#define SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
 
 //response
 #define SUCCESS_REGISTER										"SUCCESS_REGISTER"
@@ -48,6 +48,7 @@
 #define SUCCESS_GET_FILMS										"SUCCESS_GET_FILMS"
 #define SUCCESS_RENT_FILM										"SUCCESS_RENT_FILM"
 #define SUCCESS_RETURN_RENTED_FILM								"SUCCESS_RETURN_RENTEND_FILM"
+#define SUCCESS_GET_USER_RENTED_FILMS							"SUCCESS_GET_USER_RENTED_FILMS"
 #define SUCCESS_GET_MAX_RENTED_FILMS							"SUCCESS_GET_MAX_RENTED_FILMS"
 #define SUCCESS_GET_USER_EXIRED_FILMS_NO_DUE_DATE				"SUCCESS_GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS				"SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
@@ -229,10 +230,12 @@ int login(sqlite3* database, char *user_username, char *user_password);
 void create_new_film(sqlite3* database, char *film_title, int film_available_copies);
 void create_new_reservation(sqlite3* database, unsigned int reservation_user_id, unsigned int reservation_film_id);
 void send_all_films_to_client(int client_socket);
+void get_rented_user_films(int client_socket, unsigned int user_id);
 void send_all_user_expired_films_with_no_due_date(int client_socket, unsigned int user_id);
 int rent_film(sqlite3* database, unsigned int user_id, unsigned int film_id);
 int return_rented_film(sqlite3* database, unsigned int user_id, unsigned int film_id);
 int get_max_rented_films();
+film_list_t* get_all_rented_user_films(unsigned int user_id);
 film_list_t* get_all_user_expired_films_with_no_due_date(unsigned int user_id);
 int shopkeeper_change_max_rented_films(unsigned int shopkeeper_id, int new_max_rented_films);
 int shopkeeper_notify_expired_films(unsigned int shopkeeper_id);
@@ -472,6 +475,18 @@ void* connection_handler(void* client_socket_arg){
 			printf("\n[SERVER] Ricevuta richiesta tutti i film.\n");
 
 			send_all_films_to_client(client_socket);
+
+		} else if (strncmp(protocol_message, GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE, strlen(GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE)) == 0){
+
+			unsigned int user_id;
+			if(read(client_socket, &user_id, sizeof(user_id)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura USER id da socket");
+			}
+
+			printf("\n[SERVER] Ricevuta richiesta tutti i film attualmente noleggiati USER.\n");
+
+			get_rented_user_films(client_socket, user_id);
 
 		} else if (strncmp(protocol_message, RENT_FILM_PROTOCOL_MESSAGE, strlen(RENT_FILM_PROTOCOL_MESSAGE)) == 0){
 
@@ -1167,6 +1182,7 @@ int database_reservation_insert(sqlite3* database, time_t reservation_rental_dat
 		printf("\n[SERVER] Inserito RESERVATION(%lld, %lld, %d, %d).\n", (long long)reservation_rental_date, (long long)reservation_expiring_date, reservation_user_id, reservation_film_id);
 	} else {
 		sqlite3_close(database);
+		printf("[SERVER-DB] Step error: %s\n", sqlite3_errmsg(database));
 		error_handler("[SERVER] Errore inserimento RESERVATION table sqlite");
 	}
 	
@@ -1475,6 +1491,84 @@ film_list_t* get_all_user_expired_films_with_no_due_date(unsigned int user_id){
 	return user_films;
 }
 
+film_list_t* get_all_rented_user_films(unsigned int user_id){
+
+	int user_film_ids[MAX_FILMS];
+	int dim = 0;
+
+	for(int i = 0; i < reservation_list->dim; i++){
+
+		reservation_t* current_reservation = reservation_list->reservations[i];
+
+		if(
+			current_reservation->user_id == user_id
+			&&
+			current_reservation->due_date == 0
+		){
+			if(dim < MAX_FILMS){
+				user_film_ids[dim] = current_reservation->film_id;
+				dim++;
+			} else {
+				printf("\n[SERVER] Trovati più film scaduti dello USER %u del limite massimo gestibile.\n", user_id);
+				return NULL;
+			}
+		}
+	}
+
+	film_list_t* user_films = init_film_list();
+	if(user_films == NULL){
+		printf("\n[SERVER] Errore recupero film da restituire dell'utente %u.\n", user_id);
+		return NULL;
+	}
+
+	for(int i = 0; i < dim; i++){
+
+		film_t* film = search_film_by_id(user_film_ids[i]);
+
+		if(film == NULL || user_films->dim >= MAX_FILMS){
+
+			for(int j = 0; j < user_films->dim; j++){
+				free(user_films->films[j]);
+			}
+
+			pthread_mutex_destroy(&user_films->films_mutex);
+			free(user_films);
+
+			printf("\n[SERVER] Raggiunto il numero massimo di FILM supportati per il recupero di film scaduti dell'utente %u.\n", user_id);
+			return NULL;
+		}
+
+		film_t *film_to_insert = (film_t *)malloc(sizeof(film_t));
+		if(film_to_insert == NULL){
+
+			for(int j = 0; j < user_films->dim; j++){
+				free(user_films->films[j]);
+			}
+
+			pthread_mutex_destroy(&user_films->films_mutex);
+			free(user_films);
+
+			printf("\n[SERVER] Errore allocazione dinamica inserimento FILM.\n");
+			return NULL;
+		}
+
+		film_to_insert->id = film->id;
+
+		strncpy(film_to_insert->title, film->title, MAX_FILM_TITLE_SIZE - 1);
+		film_to_insert->title[MAX_FILM_TITLE_SIZE - 1] = '\0';
+
+		film_to_insert->available_copies = film->available_copies;
+
+		film_to_insert->rented_out_copies = film->rented_out_copies;
+
+		user_films->films[user_films->in_idx] = film_to_insert;
+		user_films->in_idx = (user_films->in_idx + 1) % MAX_FILMS;
+		user_films->dim = user_films->dim + 1;
+	}
+
+	return user_films;
+}
+
 void send_all_user_expired_films_with_no_due_date(int client_socket, unsigned int user_id){
 
 	pthread_mutex_lock(&film_list->films_mutex);
@@ -1493,8 +1587,6 @@ void send_all_user_expired_films_with_no_due_date(int client_socket, unsigned in
 	film_list_t* user_expired_films_with_no_due_date = get_all_user_expired_films_with_no_due_date(user_id);
 
 	if(user_expired_films_with_no_due_date == NULL){
-		pthread_mutex_unlock(&reservation_list->reservations_mutex);
-        pthread_mutex_unlock(&film_list->films_mutex);
 		close(client_socket);
 		error_handler("[SERVER] Errore recupero film dell'utente da restituire");
 	}
@@ -1581,6 +1673,62 @@ void send_all_films_to_client(int client_socket){
 		}
 	}
 
+	pthread_mutex_unlock(&film_list->films_mutex);
+}
+
+void get_rented_user_films(int client_socket, unsigned int user_id){
+
+	pthread_mutex_lock(&film_list->films_mutex);
+	pthread_mutex_lock(&reservation_list->reservations_mutex);
+
+	char film_title[MAX_FILM_TITLE_SIZE] = {0};
+
+	char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(success_message, SUCCESS_GET_USER_RENTED_FILMS);
+
+	if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+	}
+
+	film_list_t* user_rented_films = get_all_rented_user_films(user_id);
+
+	if(user_rented_films == NULL){
+		close(client_socket);
+		error_handler("[SERVER] Errore recupero film noleggiati dell'utente da restituire");
+	}
+
+	int films_dim = user_rented_films->dim;
+	if(write(client_socket, &films_dim, sizeof(films_dim)) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Errore scrittura user_rented_films dim");
+	}
+
+	for(int i = 0; i < user_rented_films->dim; i++){
+
+		unsigned int film_id = user_rented_films->films[i]->id;
+		strcpy(film_title, user_rented_films->films[i]->title);
+
+		if(write(client_socket, &film_id, sizeof(film_id)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura FILM id");
+		}
+
+		if(write(client_socket, film_title, MAX_FILM_TITLE_SIZE) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura FILM title");
+		}
+
+	}
+
+	pthread_mutex_destroy(&user_rented_films->films_mutex);
+
+	for(int i = 0; i < user_rented_films->dim; i++){
+        free(user_rented_films->films[i]);
+    }
+    free(user_rented_films);
+
+	pthread_mutex_unlock(&reservation_list->reservations_mutex);
 	pthread_mutex_unlock(&film_list->films_mutex);
 }
 
