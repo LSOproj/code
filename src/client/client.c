@@ -127,7 +127,12 @@ int start_up_menu(void){
 	printf("1 - Register\n2 - Login\n0 - Exit\n");
 	int choice = -1;
 	printf("Inserire un numero per proseguire: ");
-	scanf("%d", &choice);
+	int result = scanf("%d", &choice);
+	if(result != 1){
+		int c;
+		while((c = getchar()) != '\n' && c != EOF); // Consumare il resto della riga
+		return -1; // Scelta non valida
+	}
 	return choice;
 }
 
@@ -212,8 +217,8 @@ void login_user(int client_socket){
 
 	get_all_films(client_socket);
 
-	if(strncmp(username, "negoziante", 11)){
-		// shopkeeper_menu(client_socket);
+	if(strncmp(username, "negoziante", 10) == 0){
+		shopkeeper_menu(client_socket);
 	}else{
 		init_cart();
 		rental_menu(client_socket);
@@ -329,7 +334,12 @@ int renting_menu(){
 	printf("4 - Logout\n");
 	int choice = -1;
 	printf("Inserire un numero per proseguire: ");
-	scanf("%d", &choice);
+	int result = scanf("%d", &choice);
+	if(result != 1){ //fix se non viene inserito un numero
+		int c;
+		while((c = getchar()) != '\n' && c != EOF); // Consumare il resto della riga
+		return -1; // Scelta non valida
+	}
 	return choice;
 }
 
@@ -351,6 +361,7 @@ void rental_menu(int client_socket){
 		}
 
 		choice = renting_menu();
+
 		
 		switch(choice){
 			case 1: {
