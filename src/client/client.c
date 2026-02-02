@@ -16,12 +16,17 @@ int user_id;
 int client_socket;
 user_t user;
 cart_t cart;
+
+int film_reminder = 0;
+
 int num_films_avaible;
 film_t avaible_films[MAX_FILMS];
-int film_reminder = 0;
 
 int num_expired_films;
 film_t expired_films[MAX_FILMS];
+
+int num_rented_films;
+film_t rented_films[MAX_FILMS];
 //MOMENTANEO, QUI SOLO PER TESTING
 //IL VALORE VERO SI PRENDE DAL SERVER
 //====================================================================================================================================
@@ -286,7 +291,7 @@ void get_all_films(int client_socket){
 	strcpy(get_films_protocol_command, GET_FILMS_PROTOCOL_MESSAGE);
 
 	if(write(client_socket, get_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		printf("[CLIENT] Impossibile mandare il messaggio di protocollo\n");
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
 		exit(-1);
 	}
 
@@ -324,6 +329,54 @@ void get_all_films(int client_socket){
 	//print_films();
 
 	//rent_movie(client_socket);
+}
+
+void get_user_rented_films(int client_socket){
+
+	char get_user_rented_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(get_user_rented_films_protocol_command, GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, get_user_rented_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
+		exit(-1);
+	}
+
+	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		exit(-1);
+	}
+
+	if(read(client_socket, &num_rented_films, sizeof(num_rented_films)) < 0){
+		printf("[CLIENT] Errore nella ricezione del numero in arrico film\n");
+		exit(-1);
+	}
+
+	for(int i = 0; i < num_rented_films; i++){
+
+		if(read(client_socket, &rented_films[i].id, sizeof(rented_films[i].id)) < 0){
+			printf("[CLIENT] Errore nella ricezione del film id\n");
+			exit(-1);
+		}
+
+		if(read(client_socket, rented_films[i].title, MAX_FILM_TITLE_SIZE) < 0){
+			printf("[CLIENT] Errore nella ricezione del titolo film\n");
+			exit(-1);
+		}
+
+		if(read(client_socket, &rented_films[i].available_copies, sizeof(rented_films[i].available_copies)) < 0){
+			printf("[CLIENT] Errore nella ricezione del numero di copie disponibile\n");
+			exit(-1);
+		}
+
+		if(read(client_socket, &rented_films[i].rented_out_copies, sizeof(rented_films[i].rented_out_copies)) < 0){
+			printf("[CLIENT] Errore nella ricezione del numero di copie affitate\n");
+			exit(-1);
+		}
+	}
+
+	//print_films();
 }
 
 int renting_menu(){
