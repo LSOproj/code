@@ -45,7 +45,7 @@ void print_cart(void);
 int get_cart_count_by_id(int movie_id);
 
 void shopkeeper_menu(int client_socket);
-void set_cap_cart(int client_socket);
+void set_cap_films(int client_socket);
 
 void clear_screen(){
 #ifdef _WIN32
@@ -606,32 +606,40 @@ void shopkeeper_menu(int client_socket){
 
 	int choice = -1;
 
-	printf("1) Invia notifica per film non restituiti.\n");
-	printf("2) Imposta limite del carrello.\n");
-	printf("Scelta: ");
-	scanf("%d", &choice);
-	getchar(); // consuma \n
+	// printf("1) Invia notifica per film non restituiti.\n");
+	// printf("2) Imposta limite del carrello.\n");
+	// printf("Scelta: ");
+	// scanf("%d", &choice);
+	// getchar(); // consuma \n
 
-	while(1){
+	while(choice != 3){
+		printf("1) Invia notifica per film non restituiti.\n");
+		printf("2) Imposta limite del carrello.\n");
+		printf("Scelta: ");
+		scanf("%d", &choice);
+		getchar(); // consuma \n
 		switch(choice){
 			case 1:
 				// notify_users(client_socket);
 				break;
 			case 2:
-				set_cap_cart(client_socket);
+				set_cap_films(client_socket);
 				break;
+			case 3:
+				printf("Arrivederci!\n");
+				exit(0);
 			default:
 				printf("Scelta non valida.\n");
 		}
 	}	
 }
 
-void set_cap_cart(int client_socket){
+void set_cap_films(int client_socket){
 
-	int new_cart_cap; 
+	int new_film_cap; 
 
 	printf("A quanto si vuole impostare il nuovo limite di film da affittare: ");
-	scanf("%d", &new_cart_cap);
+	scanf("%d", &new_film_cap);
 	getchar(); // Consuma il \n
 
 
@@ -644,8 +652,14 @@ void set_cap_cart(int client_socket){
 		exit(-1);
 	}
 
+
+	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo.\n");
+		exit(-1);
+	}
+
 	// Invio il nuovo limite di film affitabili
-	if(write(client_socket, &new_cart_cap, sizeof(new_cart_cap)) < 0){
+	if(write(client_socket, &new_film_cap, sizeof(new_film_cap)) < 0){
 		printf("[CLIENT] Impossibile inviare il nuovo limite per i film.\n");
 		exit(-1);
 	}
@@ -653,6 +667,6 @@ void set_cap_cart(int client_socket){
 	if(check_server_response(client_socket) < 0){
 		printf("[CLIENT] Non e' stato possibile impostare il nuovo limite per i film.\n");
 		exit(-1);
-	}else cart_cap = new_cart_cap;
+	}
 
 }
