@@ -13,6 +13,7 @@
 #include <libgen.h>
 #include <unistd.h>
 #include <limits.h>
+#include <signal.h>
 
 #define MAX_CLIENTS 				50
 #define MAX_USERS 					100
@@ -64,6 +65,8 @@
 #define FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE		 	"FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE"
 #define FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED 	"FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED"
 
+#define FAILED_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE			 	"FAILED_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE"
+
 #define PROTOCOL_MESSAGE_MAX_SIZE 								100
 
 //semantic error definitions
@@ -80,7 +83,9 @@ typedef enum server_error {
 	ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT = -7,
 
 	ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE = -8,
-	ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED = -9
+	ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED = -9,
+
+	ERROR_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE = -10
 
 } server_error_t;
 
@@ -229,6 +234,7 @@ int return_rented_film(sqlite3* database, unsigned int user_id, unsigned int fil
 int get_max_rented_films();
 film_list_t* get_all_user_expired_films_with_no_due_date(unsigned int user_id);
 int shopkeeper_change_max_rented_films(unsigned int shopkeeper_id, int new_max_rented_films);
+int shopkeeper_notify_expired_films(unsigned int shopkeeper_id);
 
 //ausiliari
 int check_user_already_exists(char *user_username);
@@ -246,8 +252,6 @@ user_t* search_user_by_username(char *user_username);
 user_t* search_user_by_username_and_password(char *user_username, char *user_password);
 film_t* search_film_by_id(unsigned int film_id);
 reservation_t* search_reservation_by_id(unsigned int reservation_id);
-
-
 
 //threads
 void* connection_handler(void* arg);
@@ -644,7 +648,38 @@ void* connection_handler(void* client_socket_arg){
 
 		} else if (strncmp(protocol_message, SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE, strlen(SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE)) == 0){
 
-			//da implementare
+			unsigned int shopkeeper_id;
+
+			if(read(client_socket, &shopkeeper_id, sizeof(shopkeeper_id)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura SHOPKEEPER(USER) id da socket");
+			}
+
+			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+			strcpy(success_message, SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS);
+
+			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+			int result = shopkeeper_notify_expired_films(shopkeeper_id);
+
+			if(result > 0){
+
+				if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+				}
+
+			} else if (result == ERROR_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE){
+
+				strcpy(error_message, FAILED_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE);
+
+				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE protocol message");
+				}
+
+			}
+		
 		}
 	}
 
@@ -1659,6 +1694,28 @@ int shopkeeper_change_max_rented_films(unsigned int shopkeeper_id, int new_max_r
 	pthread_mutex_unlock(&reservation_list->reservations_mutex);
 	pthread_mutex_unlock(&user_list->users_mutex);
 	pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
+
+	return 1;
+}
+
+int shopkeeper_notify_expired_films(unsigned int shopkeeper_id){
+	
+	pthread_mutex_lock(&user_list->users_mutex);
+	pthread_mutex_lock(&connection_list->connections_mutex);
+
+	if(check_is_not_shopkeeper(shopkeeper_id)){
+		pthread_mutex_unlock(&connection_list->connections_mutex);
+		pthread_mutex_unlock(&user_list->users_mutex);
+		return ERROR_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE;
+	}
+
+	for(int i = 0; i < connection_list->dim; i++){
+		if(kill(connection_list->connections[i]->client_pid, SIGUSR1) < 0)
+			error_handler("[SERVER] Errore invio kill SIGUSR1");
+	}
+
+	pthread_mutex_unlock(&connection_list->connections_mutex);
+	pthread_mutex_unlock(&user_list->users_mutex);
 
 	return 1;
 }

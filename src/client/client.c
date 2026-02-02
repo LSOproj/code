@@ -7,16 +7,20 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include <signal.h>
 #include "client_protocol.h"
 #include "client_logic.h"
 
 // Global variables definition
-int num_films_avaible;
 int user_id;
+int client_socket;
 user_t user;
-film_t avaible_films[MAX_FILMS];
 cart_t cart;
+int num_films_avaible;
+film_t avaible_films[MAX_FILMS];
 
+int num_expired_films;
+film_t expired_films[MAX_FILMS];
 //MOMENTANEO, QUI SOLO PER TESTING
 //IL VALORE VERO SI PRENDE DAL SERVER
 //====================================================================================================================================
@@ -24,6 +28,11 @@ int cart_cap = 5;
 //====================================================================================================================================
 
 // Function prototypes
+typedef void (*sighandler_t)(int);
+sighandler_t signal(int signum, sighandler_t handler);
+void get_all_user_expired_films_with_no_due_date(int signum);
+void shopkeeper_notify_expired_films(int client_socket);
+
 int start_up_menu(void);
 void register_user(int client_socket);
 void login_user(int client_socket);
@@ -52,7 +61,7 @@ int main(){
 
 	// sd(socket descriptor), socket su cui il client riceve
 	// messaggi da parte del server.
-	int client_socket; 
+	//int client_socket; 
 	struct sockaddr_un server_address;
 	socklen_t server_address_len = sizeof(server_address);
 
@@ -80,6 +89,11 @@ int main(){
 	}
 
 	printf("[CLIENT] Inviato pid %d al server.\n", client_pid);
+
+	signal(SIGUSR1, get_all_user_expired_films_with_no_due_date);
+
+	printf("[CLIENT] Registrata funzione signal handler per gestire i messaggi da parte del negoziante.\n");
+
 	//system("clear");
 
 	while(1){	
@@ -252,6 +266,7 @@ int get_cart_count_by_id(int movie_id){
 }
 
 void get_all_films(int client_socket){
+
 	char get_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 	strcpy(get_films_protocol_command, GET_FILMS_PROTOCOL_MESSAGE);
 
@@ -290,8 +305,6 @@ void get_all_films(int client_socket){
 			exit(-1);
 		}
 	}
-
-	
 
 	//print_films();
 
@@ -481,3 +494,57 @@ void rental_menu(int client_socket){
 	}
 }
 
+void get_all_user_expired_films_with_no_due_date(int signum){
+
+	if(signum == SIGUSR1){
+
+		char get_user_expired_films_with_no_due_date_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+		strcpy(get_user_expired_films_with_no_due_date_protocol_command, GET_FILMS_PROTOCOL_MESSAGE);
+
+		if(write(client_socket, get_user_expired_films_with_no_due_date_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+			printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
+			exit(-1);
+		}
+
+		if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+			printf("[CLIENT] Impossibile inviare lo user_id dell'utente correntemente autenticato.\n");
+			exit(-1);
+		}
+
+		char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+		int num_expired_films;
+		film_t expired_films[MAX_FILMS];
+
+		if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+			perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+			exit(-1);
+		}
+
+		if(read(client_socket, &num_expired_films, sizeof(num_expired_films)) < 0){
+			printf("[CLIENT] Errore nella ricezione del numero di film con data di scadenza passata e non restituiti ancora.\n");
+			exit(-1);
+		}
+
+		for(int i = 0; i < num_expired_films; i++){
+
+			if(read(client_socket, &expired_films[i].id, sizeof(expired_films[i].id)) < 0){
+				printf("[CLIENT] Errore nella ricezione del film id\n");
+				exit(-1);
+			}
+
+			if(read(client_socket, expired_films[i].title, MAX_FILM_TITLE_SIZE) < 0){
+				printf("[CLIENT] Errore nella ricezione del titolo film\n");
+				exit(-1);
+			}
+		}
+
+		//print_films();
+
+		//rent_movie(client_socket);
+	}
+}
+
+void shopkeeper_notify_expired_films(int client_socket){
+
+}
