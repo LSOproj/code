@@ -6,7 +6,7 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - database_volume:/app/persist
+      - database_volume:/app/persisted_database
 
 volumes:
   database_volume:
