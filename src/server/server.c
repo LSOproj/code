@@ -1807,7 +1807,7 @@ int get_max_rented_films(){
 	pthread_mutex_lock(&shopkeeper_max_rented_films_mutex);
 
 	int max_rented_films = shopkeeper_max_rented_films_per_user;
-
+	
 	pthread_mutex_unlock(&shopkeeper_max_rented_films_mutex);
 
 	return max_rented_films;

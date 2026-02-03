@@ -52,6 +52,32 @@ void get_all_films(int client_socket){
 	}
 }
 
+void get_max_rented_films(int client_socket){
+	
+	char get_max_rented_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(get_max_rented_films_protocol_command, GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, get_max_rented_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
+		exit(-1);
+	}
+
+	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		exit(-1);
+	}
+
+	int max_rented_films;
+	if(read(client_socket, &max_rented_films, sizeof(max_rented_films)) < 0){
+		printf("[CLIENT] Errore nella ricezione del numero massimo di film noleggiabili\n");
+		exit(-1);
+	}
+
+	if(max_rented_films > 0)
+		cart_cap = max_rented_films;
+}
+
 void get_user_rented_films(int client_socket){
 	char get_user_rented_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 	strcpy(get_user_rented_films_protocol_command, GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE);
