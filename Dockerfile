@@ -35,12 +35,12 @@ RUN apt update && \
 
 COPY --from=build /app/server /app/server
 COPY --from=build /app/client /app/client
-COPY src/server/database.db /app/database.db
+COPY src/server/database.db /app/default_database/database.db
 
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
-RUN mkdir -p /app/persist
+RUN mkdir -p /app/persisted_database
 RUN mkdir -p /tmp
 
 CMD ["/app/start.sh"]
