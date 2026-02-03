@@ -792,7 +792,7 @@ void proceed_to_checkout(int client_socket){
 
 	if(choice == 2)
 		return;
-	else if(choice == 1){
+	else if(choice == 1 && cart.dim > 0){
 
 		for(int i = 0; i < cart.dim; i++){
 			rent_film(client_socket, i);
