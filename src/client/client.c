@@ -12,6 +12,7 @@
 #include "client_protocol.h"
 #include "client_logic.h"
 
+
 // ============================================================================
 // GLOBAL VARIABLES
 // ============================================================================
@@ -31,7 +32,11 @@ film_t expired_films[MAX_FILMS];
 int num_rented_films;
 film_t rented_films[MAX_FILMS];
 
+int num_reservations;
+reservation_t reservations[MAX_RESERVATIONS];
+
 int cart_cap = 5;
+char current_username[MAX_USER_USERNAME_SIZE] = "Ospite";
 
 // ============================================================================
 // MAIN
@@ -218,7 +223,9 @@ int start_up_menu(void){
 
 int renting_menu(){
 	printf("\n=== MENU NOLEGGIO ===\n");
-	printf("1 - Inserisci ID film da noleggiare (separati da virgola, max 5)\n");
+	printf("Utente: %s\n", current_username);
+	printf("Max film noleggiabili (venditore): %d\n", cart_cap);
+	printf("1 - Inserisci ID film da noleggiare (separati da virgola, max %d)\n", cart_cap);
 	printf("2 - Modifica carrello\n");
 	printf("3 - Procedere al checkout\n");
 	printf("4 - Stampa film noleggiati\n");
@@ -229,6 +236,8 @@ int renting_menu(){
 
 int shopkeeper_menu_display(){
 	printf("\n=== MENU NEGOZIANTE ===\n");
+	printf("Utente: %s\n", current_username);
+	printf("Max film noleggiabili (venditore): %d\n", cart_cap);
 	printf("1 - Invia notifica per film non restituiti\n");
 	printf("2 - Imposta limite del carrello\n");
 	printf("0 - Esci\n");
@@ -245,7 +254,8 @@ void rental_menu(int client_socket){
 		get_all_films(client_socket);
 		get_user_rented_films(client_socket);
 
-		if(film_reminder){
+		// rimouovere la parte dopo && se in testing non va
+		if(film_reminder && (num_rented_films > 0)){
 			clear_screen();
 			get_all_user_expired_films_with_no_due_date(client_socket);
 			print_expired_films();
@@ -285,6 +295,7 @@ void rental_menu(int client_socket){
 				printf("Scelta non valida.\n");
 				sleep(2);
 		}
+		get_max_rented_films(client_socket);
 	}
 }
 
@@ -360,9 +371,13 @@ void login_user(int client_socket){
 		sleep(2);
 		return;
 	}
+	
+	strncpy(current_username, username, sizeof(current_username) - 1);
+	current_username[sizeof(current_username) - 1] = '\0';
 
 	get_all_films(client_socket);
-
+	get_max_rented_films(client_socket);
+	
 	if(strncmp(username, "negoziante", 10) == 0){
 		shopkeeper_menu(client_socket);
 	}else{
@@ -626,6 +641,9 @@ void set_cap_films(int client_socket){
 		sleep(2);
 		return;
 	}
+
+	if(new_film_cap > 0)
+		cart_cap = new_film_cap;
 }
 
 // ============================================================================
@@ -637,44 +655,3 @@ void expired_films_signal_handler(int signum){
 		film_reminder = 1;
 	}
 }
-
-/*
-void get_all_user_expired_films_with_no_due_date(int client_socket){
-	char get_user_expired_films_with_no_due_date_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-	strcpy(get_user_expired_films_with_no_due_date_protocol_command, GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE);
-
-	if(write(client_socket, get_user_expired_films_with_no_due_date_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
-		exit(-1);
-	}
-
-	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
-		printf("[CLIENT] Impossibile inviare lo user_id dell'utente correntemente autenticato.\n");
-		exit(-1);
-	}
-
-	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-
-	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
-		exit(-1);
-	}
-
-	if(read(client_socket, &num_expired_films, sizeof(num_expired_films)) < 0){
-		printf("[CLIENT] Errore nella ricezione del numero di film con data di scadenza passata e non restituiti ancora.\n");
-		exit(-1);
-	}
-
-	for(int i = 0; i < num_expired_films; i++){
-		if(read(client_socket, &expired_films[i].id, sizeof(expired_films[i].id)) < 0){
-			printf("[CLIENT] Errore nella ricezione del film id\n");
-			exit(-1);
-		}
-
-		if(read(client_socket, expired_films[i].title, MAX_FILM_TITLE_SIZE) < 0){
-			printf("[CLIENT] Errore nella ricezione del titolo film\n");
-				exit(-1);
-		}
-	}
-}
-*/
