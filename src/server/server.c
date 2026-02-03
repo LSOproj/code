@@ -440,14 +440,6 @@ void* connection_handler(void* client_socket_arg){
 					error_handler("[SERVER] Errore scrittura USER id");
 				}
 
-				/*
-				if(read(client_socket, &client_pid, sizeof(client_pid)) < 0){
-					close(client_socket);
-					error_handler("[SERVER] Errore lettura CLIENT pid");
-				}
-				*/
-
-				//update connection user id with searching client pid
 				update_connection_user_id(user_id, client_pid);
 
 			} else if (user_id == ERROR_USER_DOESNT_EXISTS){

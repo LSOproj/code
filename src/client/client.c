@@ -420,6 +420,10 @@ void rental_menu(int client_socket){
 	
 	while(1){
 
+		get_all_films(client_socket);
+		get_user_rented_films(client_socket);
+		//GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE
+
 		if(film_reminder){
 			film_reminder = 0;
         	get_all_user_expired_films_with_no_due_date(client_socket);
@@ -688,7 +692,6 @@ void set_cap_films(int client_socket){
 		printf("[CLIENT] Impossibile inviare il messaggio di protocollo.\n");
 		exit(-1);
 	}
-
 
 	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
 		printf("[CLIENT] Impossibile inviare il messaggio di protocollo.\n");
