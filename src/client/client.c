@@ -826,6 +826,19 @@ void check_rented_films(){
 	print_rented_films();
 }
 
+//rimuovere film restituto da rented_films
+
+void remove_returned_film_from_memory(int id_film_to_remove){
+
+	int idx_film = get_movie_idx_by_id(id_film_to_remove);
+
+	for(int i = idx_film; i < num_rented_films; i++){
+		rented_films[i] = rented_films[i+1];
+	}
+
+	num_rented_films--;
+}
+
 void renturn_rented_film(int client_socket){
 	print_rented_films();
 
@@ -856,4 +869,6 @@ void renturn_rented_film(int client_socket){
 		sleep(2);
 		return;
 	}
+
+	remove_returned_film_from_memory(id_film_to_return);
 }
