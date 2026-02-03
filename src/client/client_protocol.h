@@ -13,7 +13,7 @@
 #define RENT_FILM_PROTOCOL_MESSAGE  								"RENT_FILM"
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE							"RETURN_RENTED_FILM"
 #define GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_USER_RENTED_FILMS"
-#define GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_MAX_RENTED_FILMS" //DA FARE SOLO SUL CLIENT
+
 #define GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE			"GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
@@ -23,14 +23,14 @@
 #define SUCCESS_LOGIN											"SUCCESS_LOGIN"
 #define SUCCESS_GET_FILMS										"SUCCESS_GET_FILMS"
 #define SUCCESS_RENT_FILM										"SUCCESS_RENT_FILM"
-#define SUCCESS_RETURN_RENTED_FILM								"SUCCESS_RETURN_RENTEND_FILM"
+#define SUCCESS_RETURN_RENTED_FILM						"SUCCESS_RETURN_RENTED_FILM"
 #define SUCCESS_GET_USER_RENTED_FILMS							"SUCCESS_GET_USER_RENTED_FILMS"
 #define SUCCESS_GET_MAX_RENTED_FILMS							"SUCCESS_GET_MAX_RENTED_FILMS"
 #define SUCCESS_GET_USER_EXIRED_FILMS_NO_DUE_DATE				"SUCCESS_GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS				"SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS					"SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
 
-#define FAILED_USER_ALREDY_EXISTS								"FAILED_USER_ALREADY_EXISTS"
+#define FAILED_USER_ALREADY_EXISTS						"FAILED_USER_ALREADY_EXISTS"
 #define FAILED_USER_DOESNT_EXISTS								"FAILED_USER_DOESNT_EXISTS"
 #define FAILED_USER_BAD_CREDENTIALS								"FAILED_USER_BAD_CREDENTIALS"
 
@@ -55,10 +55,15 @@ typedef struct user_t {
 
 // Global variables
 extern unsigned int user_id;
-extern user_t user;
 
 // Function prototypes
 void get_user_id(int client_socket);
 int check_server_response(int client_socket);
+void get_all_films(int client_socket);
+void get_user_rented_films(int client_socket);
+void get_all_user_expired_films_with_no_due_date(int client_socket);
+void shopkeeper_notify_expired_films(int client_socket);
+void rent_film(int client_socket, int idx);
+void return_film(int client_socket, int film_id);
 
 #endif

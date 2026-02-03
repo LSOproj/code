@@ -7,15 +7,143 @@
 #include "client_protocol.h"
 #include "client_logic.h"
 
-void get_user_id(int client_socket){
+// ============================================================================
+// PROTOCOL I/O
+// ============================================================================
 
+void get_all_films(int client_socket){
+	char get_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(get_films_protocol_command, GET_FILMS_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, get_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
+		exit(-1);
+	}
+
+	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		exit(-1);
+	}
+
+	if(read(client_socket, &num_films_avaible, sizeof(num_films_avaible)) < 0){
+		printf("[CLIENT] Errore nella ricezione del numero in arrico film\n");
+		exit(-1);
+	}
+
+	for(int i = 0; i < num_films_avaible; i++){
+		if(read(client_socket, &avaible_films[i].id, sizeof(avaible_films[i].id)) < 0){
+			printf("[CLIENT] Errore nella ricezione del film id\n");
+			exit(-1);
+		}
+		if(read(client_socket, avaible_films[i].title, MAX_FILM_TITLE_SIZE) < 0){
+			printf("[CLIENT] Errore nella ricezione del titolo film\n");
+			exit(-1);
+		}
+		if(read(client_socket, &avaible_films[i].available_copies, sizeof(avaible_films[i].available_copies)) < 0){
+			printf("[CLIENT] Errore nella ricezione del numero di copie disponibile\n");
+			exit(-1);
+		}
+		if(read(client_socket, &avaible_films[i].rented_out_copies, sizeof(avaible_films[i].rented_out_copies)) < 0){
+			printf("[CLIENT] Errore nella ricezione del numero di copie affitate\n");
+			exit(-1);
+		}
+	}
+}
+
+void get_user_rented_films(int client_socket){
+	char get_user_rented_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(get_user_rented_films_protocol_command, GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, get_user_rented_films_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
+		exit(-1);
+	}
+
+	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibile inviare lo USER id\n");
+		exit(-1);
+	}
+
+	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		exit(-1);
+	}
+
+	if(read(client_socket, &num_rented_films, sizeof(num_rented_films)) < 0){
+		printf("[CLIENT] Errore nella ricezione del numero in arrivo film\n");
+		exit(-1);
+	}
+
+	for(int i = 0; i < num_rented_films; i++){
+		if(read(client_socket, &rented_films[i].id, sizeof(rented_films[i].id)) < 0){
+			printf("[CLIENT] Errore nella ricezione del film id\n");
+			exit(-1);
+		}
+
+		if(read(client_socket, rented_films[i].title, MAX_FILM_TITLE_SIZE) < 0){
+			printf("[CLIENT] Errore nella ricezione del titolo film\n");
+			exit(-1);
+		}
+	}
+}
+
+void get_all_user_expired_films_with_no_due_date(int client_socket){
+	char get_user_expired_films_with_no_due_date_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(get_user_expired_films_with_no_due_date_protocol_command, GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, get_user_expired_films_with_no_due_date_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
+		exit(-1);
+	}
+
+	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibile inviare lo user_id dell'utente correntemente autenticato.\n");
+		exit(-1);
+	}
+
+	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+	int num_expired_films;
+	film_t expired_films[MAX_FILMS];
+
+	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		exit(-1);
+	}
+
+	if(read(client_socket, &num_expired_films, sizeof(num_expired_films)) < 0){
+		printf("[CLIENT] Errore nella ricezione del numero di film con data di scadenza passata e non restituiti ancora.\n");
+		exit(-1);
+	}
+
+	for(int i = 0; i < num_expired_films; i++){
+		if(read(client_socket, &expired_films[i].id, sizeof(expired_films[i].id)) < 0){
+			printf("[CLIENT] Errore nella ricezione del film id\n");
+			exit(-1);
+		}
+
+		if(read(client_socket, expired_films[i].title, MAX_FILM_TITLE_SIZE) < 0){
+			printf("[CLIENT] Errore nella ricezione del titolo film\n");
+				exit(-1);
+		}
+	}
+}
+
+// ============================================================================
+// SERVER RESPONSE HANDLING
+// ============================================================================
+
+void get_user_id(int client_socket){
 	if(read(client_socket, &user_id, sizeof(user_id)) < 0){
 		printf("[CLIENT] Impossibilile leggere lo USER id\n");
 		exit(-1);
 	}
 
 	printf("[CLIENT] Assegnato USER id %u\n", user_id);
-
 }
 
 int check_server_response(int client_socket){
@@ -53,7 +181,7 @@ int check_server_response(int client_socket){
 		printf("[CLIENT] Film restituito con successo!\n");
 		return 0;
 
-	} else if (strncmp(response, SUCCESS_GET_MAX_RENTED_FILMS, strlen(SUCCESS_RETURN_RENTED_FILM)) == 0){
+	} else if (strncmp(response, SUCCESS_GET_MAX_RENTED_FILMS, strlen(SUCCESS_GET_MAX_RENTED_FILMS)) == 0){
 
 		printf("[CLIENT] Ottenuto il numero massimo di film noleggiabili imposto dal negoziante con successo!\n");
 		return 0;
@@ -73,7 +201,7 @@ int check_server_response(int client_socket){
 		printf("[CLIENT] Inviata notifica di restituzione dei film noleggiati e scaduti a tutti gli utenti con successo!\n");
 		return 0;
 
-	} else if (strncmp(response, FAILED_USER_ALREDY_EXISTS, strlen(FAILED_USER_ALREDY_EXISTS)) == 0){
+	} else if (strncmp(response, FAILED_USER_ALREADY_EXISTS, strlen(FAILED_USER_ALREADY_EXISTS)) == 0){
 
 		printf("[CLIENT] L'username specificato già appartiene ad un altro utente!\n");
 		return -1;
@@ -128,4 +256,72 @@ int check_server_response(int client_socket){
 
 	return 0;
 
+}
+
+void rent_film(int client_socket, int idx){
+	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(protocol_message, RENT_FILM_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo.\n");
+		exit(-1);
+	}
+
+	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibile inviare user_id.\n");
+		exit(-1);
+	}
+	if(write(client_socket, &(cart.film_id_to_rent[idx]), sizeof(cart.film_id_to_rent[idx])) < 0){
+		printf("[CLIENT] Impossibile inviare l'id del film.\n");
+		exit(-1);
+	}
+
+	if(check_server_response(client_socket) < 0){
+		sleep(2);
+		return;
+	}
+}
+
+void return_film(int client_socket, int film_id){
+	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE];
+	strcpy(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE);
+	
+	if(write(client_socket, protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare messaggio di protocollo: %s\n", protocol_message);
+		exit(-1);
+	}
+
+	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibile inviare lo USER id\n");
+		exit(-1);
+	}
+
+	if(write(client_socket, &film_id, sizeof(film_id)) < 0){
+		printf("[CLIENT] Impossibile inviare l'id del film da restituire\n");
+		exit(-1);
+	}
+
+	if(check_server_response(client_socket) < 0){
+		sleep(2);
+	}
+}
+
+void shopkeeper_notify_expired_films(int client_socket){
+	char notify_expired_films_protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(notify_expired_films_protocol_message, SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, notify_expired_films_protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
+		exit(-1);
+	}
+
+	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibile inviare lo user_id dell'utente correntemente autenticato.\n");
+		exit(-1);
+	}
+
+	if(check_server_response(client_socket) < 0){
+		sleep(2);
+		return;
+	}
 }

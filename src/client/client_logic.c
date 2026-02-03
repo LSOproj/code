@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include "client_logic.h"
+#include "client_protocol.h"
 
 int get_movie_idx_by_id(int movie_id){
 	int i = 0;
@@ -29,7 +32,7 @@ void parse_film_ids(char *input, int *film_ids, int *count){
 	char temp[10];
 	int temp_idx = 0;
 	
-	for(int i = 0; input[i] != '\0' && *count < 5; i++){
+	for(int i = 0; input[i] != '\0' && *count < cart_cap; i++){
 		if(input[i] == ',' || input[i] == ' '){
 			if(temp_idx > 0){
 				temp[temp_idx] = '\0';
@@ -82,6 +85,10 @@ void parse_film_ids(char *input, int *film_ids, int *count){
 	}
 }
 
+// ============================================================================
+// RENTAL OPERATIONS
+// ============================================================================
+
 void init_cart(void){
 	//teoricamente ogni volta al boot up 
 	//si salva il cap imposto dal venditore
@@ -89,9 +96,9 @@ void init_cart(void){
 }
 
 void add_to_cart(int movie_id){
-	if(cart.dim >= cart_cap)
-		printf("Impossibile aggiungere  al carrello, limite raggiunto.");
-	else{
+	if(cart.dim >= cart_cap){
+		printf("Impossibile aggiungere film al carrello, limite raggiunto (%d/%d).\n", cart.dim, cart_cap);
+	} else {
 		cart.film_id_to_rent[cart.dim] = movie_id;
 		cart.dim++;
 	}
@@ -182,5 +189,59 @@ void remove_from_cart(char *report, size_t report_size){
 
 	if(!found_any && report && report_size > 0){
 		snprintf(report, report_size, "Nessun ID inserito.\n");
+	}
+}
+
+void parse_film_ids_to_return(char *input, int *film_ids, int *count){
+	*count = 0;
+	char temp[10];
+	int temp_idx = 0;
+	
+	for(int i = 0; input[i] != '\0' && *count < MAX_FILMS; i++){
+		if(input[i] == ',' || input[i] == ' '){
+			if(temp_idx > 0){
+				temp[temp_idx] = '\0';
+				int movie_id = atoi(temp);
+				if(movie_id > 0){
+					// Validazione: film è nei film noleggiati?
+					int found = 0;
+					for(int j = 0; j < num_rented_films; j++){
+						if(rented_films[j].id == movie_id){
+							found = 1;
+							break;
+						}
+					}
+					if(found){
+						film_ids[*count] = movie_id;
+						(*count)++;
+					} else {
+						printf("ID %d non è tra i film noleggiati.\n", movie_id);
+					}
+				}
+				temp_idx = 0;
+			}
+		} else {
+			temp[temp_idx++] = input[i];
+		}
+	}
+	if(temp_idx > 0){
+		temp[temp_idx] = '\0';
+		int movie_id = atoi(temp);
+		if(movie_id > 0){
+			// Validazione: film è nei film noleggiati?
+			int found = 0;
+			for(int j = 0; j < num_rented_films; j++){
+				if(rented_films[j].id == movie_id){
+					found = 1;
+					break;
+				}
+			}
+			if(found){
+				film_ids[*count] = movie_id;
+				(*count)++;
+			} else {
+				printf("ID %d non è tra i film noleggiati.\n", movie_id);
+			}
+		}
 	}
 }

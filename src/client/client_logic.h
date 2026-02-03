@@ -21,6 +21,8 @@ extern int num_films_avaible;
 extern film_t avaible_films[MAX_FILMS];
 extern cart_t cart;
 extern int cart_cap;
+extern int num_rented_films;
+extern film_t rented_films[MAX_FILMS];
 
 // Function prototypes
 void init_cart(void);
@@ -29,5 +31,6 @@ void remove_from_cart(char *report, size_t report_size);
 int get_movie_idx_by_id(int movie_id);
 int get_cart_count_by_id(int movie_id);
 void parse_film_ids(char *input, int *film_ids, int *count);
+void parse_film_ids_to_return(char *input, int *film_ids, int *count);
 
 #endif
