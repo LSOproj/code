@@ -1,0 +1,12 @@
+services:
+  videorent:
+    build: .
+    image: videorent
+    container_name: videorent-client-server
+    stdin_open: true
+    tty: true
+    volumes:
+      - database_volume:/app/persisted_database
+
+volumes:
+  database_volume:
