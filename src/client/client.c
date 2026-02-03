@@ -474,8 +474,7 @@ void rental_menu(int client_socket){
 					while(*token == ' ')
 						token++;
 					int movie_id = 0;
-					int requested = 0;
-					int parsed = sscanf(token, "%d(%d)", &movie_id, &requested);
+					int parsed = sscanf(token, "%d", &movie_id);
 					if(parsed < 1 || movie_id <= 0){
 						token = strtok(NULL, ",");
 						continue;
@@ -487,37 +486,25 @@ void rental_menu(int client_socket){
 						token = strtok(NULL, ",");
 						continue;
 					}
-					int to_add = (parsed == 2 && requested > 0) ? requested : 1;
 					int in_cart = get_cart_count_by_id(movie_id);
-					int disponibili = avaible_films[idx].available_copies - in_cart;
-					if(disponibili <= 0){
+					if(in_cart > 0){
+						printf("Film '%s' è già nel carrello. Non è possibile aggiungere lo stesso film più volte.\n", avaible_films[idx].title);
+						token = strtok(NULL, ",");
+						continue;
+					}
+					if(avaible_films[idx].available_copies <= 0){
 						printf("Non ci sono copie disponibili per '%s'.\n", avaible_films[idx].title);
 						token = strtok(NULL, ",");
 						continue;
 					}
-					int slots = cart_cap - cart.dim;
-					int max_add = disponibili;
-					if(max_add > slots)
-						max_add = slots;
-					int to_add_effective = to_add;
-					if(to_add_effective > max_add)
-						to_add_effective = max_add;
-					for(int n = 0; n < to_add_effective; n++){
-						add_to_cart(movie_id);
-					}
-					if(to_add_effective > 0){
-						printf("Film '%s' aggiunto al carrello (x%d).\n", avaible_films[idx].title, to_add_effective);
-					}
-					if(to_add_effective < to_add){
-						int excess = to_add - to_add_effective;
-						printf("Copie in eccesso non aggiunte per '%s': %d\n", avaible_films[idx].title, excess);
-					}
+					add_to_cart(movie_id);
+					printf("Film '%s' aggiunto al carrello.\n", avaible_films[idx].title);
 					token = strtok(NULL, ",");
 				}
 				if(!found_any){
 					printf("Nessun ID inserito.\n");
 				}
-				sleep(2);
+				sleep(3);
 				show_main_view();
 				films_shown = 1;
 				break;
