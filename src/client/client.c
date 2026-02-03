@@ -193,6 +193,20 @@ void empty_out_cart(){
 	cart.dim = 0;
 }
 
+void print_expired_films(){
+	printf("-----------------------------------------------------------------------\n");
+	printf("Restituire i seguenti film, in quanto e' terminato il periodo di noleggio.\n");
+	printf("-----------------------------------------------------------------------\n");
+	printf("%-3s %-30s\n",
+			"ID", "Title");
+	printf("-----------------------------------------------------------------------\n");
+	for(int i = 0; i < num_expired_films; i++){
+		printf("%-3d %-30s\n",
+		expired_films[i].id,
+		expired_films[i].title);
+	}
+}
+
 // ============================================================================
 // MENU UI
 // ============================================================================
@@ -228,11 +242,13 @@ void rental_menu(int client_socket){
 	
 	while(1){
 		// Aggiorna sempre la lista dei film noleggiati all'inizio del loop
+		get_all_films(client_socket);
 		get_user_rented_films(client_socket);
 
 		if(film_reminder){
+			get_all_user_expired_films_with_no_due_date(client_socket);
+			print_expired_films();
 			film_reminder = 0;
-        	get_all_user_expired_films_with_no_due_date(client_socket);
 		}
 
 		show_main_view();

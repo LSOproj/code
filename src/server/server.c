@@ -1361,9 +1361,10 @@ void create_new_film(sqlite3* database, char *film_title, int film_available_cop
 
 void create_new_reservation(sqlite3* database, unsigned int reservation_user_id, unsigned int reservation_film_id){
 
-
 	time_t reservation_rental_date = time(NULL);
-	time_t reservation_expiring_date = reservation_rental_date + (RENTAL_DURATION_DAYS * SECONDS_IN_DAY);
+	//time_t reservation_expiring_date = reservation_rental_date + (RENTAL_DURATION_DAYS * SECONDS_IN_DAY);
+	//SOLO TEST ABILITARE SOPRA
+	time_t reservation_expiring_date = reservation_rental_date + 10;
 	int reservation_id_result = database_reservation_insert(database, reservation_rental_date, reservation_expiring_date, reservation_user_id, reservation_film_id);
 
 	if(reservation_id_result == -1){
@@ -1577,6 +1578,15 @@ void send_all_user_expired_films_with_no_due_date(int client_socket, unsigned in
 	}
 
 	film_list_t* user_expired_films_with_no_due_date = get_all_user_expired_films_with_no_due_date(user_id);
+
+	 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	film_list_t* list = user_expired_films_with_no_due_date;
+	 for(int i = 0; i < list->dim; i++){
+		printf("%-3d %-30s\n",
+			list->films[i]->id,
+			list->films[i]->title);
+	 }
+	 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 	if(user_expired_films_with_no_due_date == NULL){
 		close(client_socket);
