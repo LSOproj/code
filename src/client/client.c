@@ -55,6 +55,8 @@ void get_user_rented_films(int client_socket);
 void check_rented_films();
 void renturn_rented_film(int client_socket);
 
+void print_expired_films();
+
 void clear_screen(){
 #ifdef _WIN32
 	system("cls");
@@ -425,11 +427,9 @@ void rental_menu(int client_socket){
 		//GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE
 
 		if(film_reminder){
-			film_reminder = 0;
         	get_all_user_expired_films_with_no_due_date(client_socket);
-			//FARE POI LA PRINT DEI FILMS SALVATI IN
-			//int num_expired_films;
-			//film_t expired_films[MAX_FILMS];
+			print_expired_films();
+			film_reminder = 0;
 		}
 
 		choice = renting_menu();
@@ -594,9 +594,6 @@ void get_all_user_expired_films_with_no_due_date(int client_socket){
 
 	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
-	int num_expired_films;
-	film_t expired_films[MAX_FILMS];
-
 	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
 		exit(-1);
@@ -616,7 +613,7 @@ void get_all_user_expired_films_with_no_due_date(int client_socket){
 
 		if(read(client_socket, expired_films[i].title, MAX_FILM_TITLE_SIZE) < 0){
 			printf("[CLIENT] Errore nella ricezione del titolo film\n");
-				exit(-1);
+			exit(-1);
 		}
 	}
 }
@@ -804,5 +801,20 @@ void renturn_rented_film(int client_socket){
 	if(check_server_response(client_socket) < 0){
 		sleep(2);
 		return;
+	}
+}
+
+
+void print_expired_films(){
+	printf("-----------------------------------------------------------------------\n");
+	printf("Restituire i seguenti film, in quanto e' terminato il periodo di noleggio.\n");
+	printf("-----------------------------------------------------------------------\n");
+	printf("%-3s %-30s\n",
+			"ID", "Title");
+	printf("-----------------------------------------------------------------------\n");
+	for(int i = 0; i < num_expired_films; i++){
+		printf("%-3d %-30s\n",
+		expired_films[i].id,
+		expired_films[i].title);
 	}
 }

@@ -1579,6 +1579,15 @@ void send_all_user_expired_films_with_no_due_date(int client_socket, unsigned in
 
 	film_list_t* user_expired_films_with_no_due_date = get_all_user_expired_films_with_no_due_date(user_id);
 
+	 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	film_list_t* list = user_expired_films_with_no_due_date;
+	 for(int i = 0; i < list->dim; i++){
+		printf("%-3d %-30s\n",
+			list->films[i]->id,
+			list->films[i]->title);
+	 }
+	 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 	if(user_expired_films_with_no_due_date == NULL){
 		close(client_socket);
 		error_handler("[SERVER] Errore recupero film dell'utente da restituire");
