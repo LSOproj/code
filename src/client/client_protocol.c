@@ -7,7 +7,6 @@
 #include "client_protocol.h"
 #include "client_logic.h"
 
-
 // ============================================================================
 // PROTOCOL I/O
 // ============================================================================
@@ -56,10 +55,15 @@ void get_all_films(int client_socket){
 void get_all_reservations(int client_socket){
 
 	char get_all_reservations_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-	strcpy(get_all_reservations_protocol_command, GET_ALL_RESERVATION_PROTOCOL_MESSAGE);
+	strcpy(get_all_reservations_protocol_command, SHOPKEEPER_GET_ALL_RESERVATIONS_PROTOCOL_MESSAGE);
 
 	if(write(client_socket, get_all_reservations_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 		printf("[CLIENT] Impossibile inviare il messaggio di protoccolo.\n");
+		exit(-1);
+	}
+
+	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibile inviare SHOPKEEPER id.\n");
 		exit(-1);
 	}
 
@@ -69,38 +73,50 @@ void get_all_reservations(int client_socket){
 		exit(-1);
 	}
 
-	if(read(client_socket, &num_reservations, sizeof(num_reservations)) < 0){
-		printf("[CLIENT] Errore nella ricezione del numero di prenotazioni.\n");
-		exit(-1);
-	}
+	if(strncmp(response, SUCCESS_SHOPKEEPER_GET_ALL_RESERVATIONS, PROTOCOL_MESSAGE_MAX_SIZE) == 0){
 
-	printf("[CLIENT] Ricevute %d prenotazioni dal server.\n", num_reservations);
+		if(read(client_socket, &num_reservations, sizeof(num_reservations)) < 0){
+			printf("[CLIENT] Errore nella ricezione del numero di prenotazioni.\n");
+			exit(-1);
+		}
 
-	for(int i = 0; i < num_reservations; i++){
-		if(read(client_socket, &(reservations[i].id), sizeof(reservations[i].id)) < 0){
-			printf("[CLIENT] Errore nella ricezione del id della reservation\n");
-			exit(-1);
+		printf("[CLIENT] Ricevute %d prenotazioni dal server.\n", num_reservations);
+
+		for(int i = 0; i < num_reservations; i++){
+
+			if(read(client_socket, &(reservations[i].id), sizeof(reservations[i].id)) < 0){
+				printf("[CLIENT] Errore nella ricezione del id della reservation\n");
+				exit(-1);
+			}
+
+			if(read(client_socket, &(reservations[i].rental_date), sizeof(reservations[i].rental_date)) < 0){
+				printf("[CLIENT] Errore nella ricezione del time stamp in cui e' stato nolegiato il film\n");
+				exit(-1);
+			}
+
+			if(read(client_socket, &(reservations[i].expiring_date), sizeof(reservations[i].expiring_date)) < 0){
+				printf("[CLIENT] Errore nella ricezione del time stamp di restituzione di un film\n");
+				exit(-1);
+			}
+
+			if(read(client_socket, &(reservations[i].due_date), sizeof(reservations[i].due_date)) < 0){
+				printf("[CLIENT] Errore nella ricezione del time stamp per cui si deve riconsegnare un film\n");
+				exit(-1);
+			}
+
+			if(read(client_socket, &(reservations[i].user_id), sizeof(reservations[i].user_id)) < 0){
+				printf("[CLIENT] Errore nella ricezione del USER id\n");
+				exit(-1);
+			}
+
+			if(read(client_socket, &(reservations[i].film_id), sizeof(reservations[i].film_id)) < 0){
+				printf("[CLIENT] Errore nella ricezione del FILM id\n");
+				exit(-1);
+			}
 		}
-		if(read(client_socket, &(reservations[i].rental_date), sizeof(reservations[i].rental_date)) < 0){
-			printf("[CLIENT] Errore nella ricezione del time stamp in cui e' stato nolegiato il film\n");
-			exit(-1);
-		}
-		if(read(client_socket, &(reservations[i].expiring_date), sizeof(reservations[i].expiring_date)) < 0){
-			printf("[CLIENT] Errore nella ricezione del time stamp di restituzione di un film\n");
-			exit(-1);
-		}
-		if(read(client_socket, &(reservations[i].due_date), sizeof(reservations[i].due_date)) < 0){
-			printf("[CLIENT] Errore nella ricezione del time stamp per cui si deve riconsegnare un film\n");
-			exit(-1);
-		}
-		if(read(client_socket, &(reservations[i].user_id), sizeof(reservations[i].user_id)) < 0){
-			printf("[CLIENT] Errore nella ricezione del USER id\n");
-			exit(-1);
-		}
-		if(read(client_socket, &(reservations[i].film_id), sizeof(reservations[i].film_id)) < 0){
-			printf("[CLIENT] Errore nella ricezione del FILM id\n");
-			exit(-1);
-		}
+
+	} else if (strncmp(response, FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE, PROTOCOL_MESSAGE_MAX_SIZE) == 0){
+		printf("[CLIENT] Non è possibile ottenere tutti i noleggi effettuati se non si è autenticati come negoziante!\n");
 	}
 
 }
@@ -277,11 +293,17 @@ int check_server_response(int client_socket){
 		printf("[CLIENT] Inviata notifica di restituzione dei film noleggiati e scaduti a tutti gli utenti con successo!\n");
 		return 0;
 
-	} else if(strncmp(response, SUCCESS_GET_ALL_RESERVATION, strlen(SUCCESS_GET_ALL_RESERVATION)) == 0){
+	} else if(strncmp(response, SUCCESS_SHOPKEEPER_GET_ALL_RESERVATIONS, strlen(SUCCESS_SHOPKEEPER_GET_ALL_RESERVATIONS)) == 0){
 
 		printf("[CLIENT] Ottenuti tutti i noleggi effettuati.\n");
+		return 0;
 
-	}else if (strncmp(response, FAILED_USER_ALREADY_EXISTS, strlen(FAILED_USER_ALREADY_EXISTS)) == 0){
+	} else if(strncmp(response, FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE, strlen(FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE)) == 0){
+
+		printf("[CLIENT] Non è possibile ottenere tutti i noleggi effettuati se non si è autenticati come negoziante!\n");
+		return -1;
+
+	} else if (strncmp(response, FAILED_USER_ALREADY_EXISTS, strlen(FAILED_USER_ALREADY_EXISTS)) == 0){
 
 		printf("[CLIENT] L'username specificato già appartiene ad un altro utente!\n");
 		return -1;
@@ -292,7 +314,6 @@ int check_server_response(int client_socket){
 		return -1;
 
 	}else if (strncmp(response, FAILED_USER_BAD_CREDENTIALS, strlen(FAILED_USER_BAD_CREDENTIALS)) == 0){
-
 
 		printf("[CLIENT] Credenziali errate!\n");
 		return -1;

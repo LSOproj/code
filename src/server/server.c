@@ -35,6 +35,7 @@
 #define REGISTER_PROTOCOL_MESSAGE 									"REGISTER"
 #define LOGIN_PROTOCOL_MESSAGE 										"LOGIN"
 #define GET_FILMS_PROTOCOL_MESSAGE  								"GET_FILMS"
+#define SHOPKEEPER_GET_ALL_RESERVATIONS_PROTOCOL_MESSAGE			"SHOPKEEPER_GET_ALL_RESERVATIONS"
 #define RENT_FILM_PROTOCOL_MESSAGE  								"RENT_FILM"
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE							"RETURN_RENTED_FILM"
 #define GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_USER_RENTED_FILMS"
@@ -47,6 +48,7 @@
 #define SUCCESS_REGISTER										"SUCCESS_REGISTER"
 #define SUCCESS_LOGIN											"SUCCESS_LOGIN"
 #define SUCCESS_GET_FILMS										"SUCCESS_GET_FILMS"
+#define SUCCESS_SHOPKEEPER_GET_ALL_RESERVATIONS					"SUCCESS_SHOPKEEPER_GET_ALL_RESERVATIONS"
 #define SUCCESS_RENT_FILM										"SUCCESS_RENT_FILM"
 #define SUCCESS_RETURN_RENTED_FILM								"SUCCESS_RETURN_RENTEND_FILM"
 #define SUCCESS_GET_USER_RENTED_FILMS							"SUCCESS_GET_USER_RENTED_FILMS"
@@ -55,7 +57,7 @@
 #define SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS				"SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS					"SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
 
-#define FAILED_USER_ALREDY_EXISTS								"FAILED_USER_ALREADY_EXISTS"
+#define FAILED_USER_ALREADY_EXISTS								"FAILED_USER_ALREADY_EXISTS"
 #define FAILED_USER_DOESNT_EXISTS								"FAILED_USER_DOESNT_EXISTS"
 #define FAILED_USER_BAD_CREDENTIALS								"FAILED_USER_BAD_CREDENTIALS"
 
@@ -69,6 +71,8 @@
 #define FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED 	"FAILED_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED"
 
 #define FAILED_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE			 	"FAILED_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE"
+
+#define FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE				"FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE"
 
 #define PROTOCOL_MESSAGE_MAX_SIZE 								100
 
@@ -88,7 +92,9 @@ typedef enum server_error {
 	ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_ROLE = -8,
 	ERROR_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_USER_EXEEDED = -9,
 
-	ERROR_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE = -10
+	ERROR_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE = -10,
+
+	ERROR_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE = -11
 
 } server_error_t;
 
@@ -231,6 +237,7 @@ int login(sqlite3* database, char *user_username, char *user_password);
 void create_new_film(sqlite3* database, char *film_title, int film_available_copies);
 void create_new_reservation(sqlite3* database, unsigned int reservation_user_id, unsigned int reservation_film_id);
 void send_all_films_to_client(int client_socket);
+int send_all_reservations_to_client(int client_socket, int shopkeeper_id);
 void get_rented_user_films(int client_socket, unsigned int user_id);
 void send_all_user_expired_films_with_no_due_date(int client_socket, unsigned int user_id);
 int rent_film(sqlite3* database, unsigned int user_id, unsigned int film_id);
@@ -399,7 +406,7 @@ void* connection_handler(void* client_socket_arg){
 
 			} else if (result == ERROR_USER_ALREADY_EXISTS){
 
-				strcpy(error_message, FAILED_USER_ALREDY_EXISTS);
+				strcpy(error_message, FAILED_USER_ALREADY_EXISTS);
 
 				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 					close(client_socket);
@@ -606,6 +613,39 @@ void* connection_handler(void* client_socket_arg){
 			printf("\n[SERVER] Ricevuta richiesta tutti i film scaduti per uno USER.\n");
 
 			send_all_user_expired_films_with_no_due_date(client_socket, user_id);
+
+		} else if (strncmp(protocol_message, SHOPKEEPER_GET_ALL_RESERVATIONS_PROTOCOL_MESSAGE, strlen(SHOPKEEPER_GET_ALL_RESERVATIONS_PROTOCOL_MESSAGE)) == 0){
+
+			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+			strcpy(success_message, SUCCESS_SHOPKEEPER_GET_ALL_RESERVATIONS);
+
+			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+			unsigned int shopkeeper_id;
+			if(read(client_socket, &shopkeeper_id, sizeof(shopkeeper_id)) < 0){
+				close(client_socket);
+				error_handler("[SERVER] Errore lettura SHOPKEEPER id da socket");
+			}
+
+			int result = send_all_reservations_to_client(client_socket, shopkeeper_id);
+
+			if(result > 0){
+
+				if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+				}
+
+			} else if (result == ERROR_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE){
+
+				strcpy(error_message, FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE);
+
+				if(write(client_socket, error_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+					close(client_socket);
+					error_handler("[SERVER] Errore scrittura FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE protocol message");
+				}
+
+			}
 
 		} else if (strncmp(protocol_message, SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE, strlen(SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE)) == 0){
 
@@ -1662,6 +1702,78 @@ void send_all_films_to_client(int client_socket){
 	}
 
 	pthread_mutex_unlock(&film_list->films_mutex);
+}
+
+int send_all_reservations_to_client(int client_socket, int shopkeeper_id){
+
+	pthread_mutex_lock(&reservation_list->reservations_mutex);
+	pthread_mutex_lock(&user_list->users_mutex);
+
+	if(check_is_not_shopkeeper(shopkeeper_id)){
+		pthread_mutex_unlock(&user_list->users_mutex);
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
+		return ERROR_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE;
+	}
+
+	char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(success_message, SUCCESS_SHOPKEEPER_GET_ALL_RESERVATIONS);
+
+	if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
+	}
+
+	int reservations_dim = reservation_list->dim;
+	if(write(client_socket, &reservations_dim, sizeof(reservations_dim)) < 0){
+		close(client_socket);
+		error_handler("[SERVER] Errore scrittura FILM dim");
+	}
+
+	for(int i = 0; i < reservation_list->dim; i++){
+
+		unsigned int reservation_id = reservation_list->reservations[i]->id;
+		time_t rental_date = reservation_list->reservations[i]->rental_date;
+		time_t expiring_date = reservation_list->reservations[i]->expiring_date;
+		time_t due_date = reservation_list->reservations[i]->due_date;
+		unsigned int user_id = reservation_list->reservations[i]->user_id;
+		unsigned int film_id = reservation_list->reservations[i]->film_id;
+
+
+		if(write(client_socket, &reservation_id, sizeof(reservation_id)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura RESERVATION id");
+		}
+
+		if(write(client_socket, &rental_date, sizeof(rental_date)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura RESERVATION rental_date");
+		}
+
+		if(write(client_socket, &expiring_date, sizeof(expiring_date)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura RESERVATION expiring_date");
+		}
+
+		if(write(client_socket, &due_date, sizeof(due_date)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura RESERVATION due_date");
+		}
+
+		if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura RESERVATION user_id");
+		}
+
+		if(write(client_socket, &film_id, sizeof(film_id)) < 0){
+			close(client_socket);
+			error_handler("[SERVER] Errore scrittura RESERVATION film_id");
+		}
+	}
+
+	pthread_mutex_unlock(&user_list->users_mutex);
+	pthread_mutex_unlock(&reservation_list->reservations_mutex);
+
+	return 1;
 }
 
 void get_rented_user_films(int client_socket, unsigned int user_id){

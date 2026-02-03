@@ -1,4 +1,4 @@
-src/server/server
-src/client/client
-src/server/database.db
-*.db
+./src/server/server
+./src/client/client
+./src/server/database.db
+
