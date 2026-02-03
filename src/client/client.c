@@ -573,12 +573,7 @@ void rental_menu(int client_socket){
 void expired_films_signal_handler(int signum){
 
 	if(signum == SIGUSR1){
-
 		film_reminder = 1;
-
-		//print_films();
-
-		//rent_movie(client_socket);
 	}
 }
 
