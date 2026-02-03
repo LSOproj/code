@@ -33,6 +33,7 @@ int handle_logout(void);
 // SHOPKEEPER MENU HANDLERS
 // ============================================================================
 void set_cap_films(int client_socket);
+void handle_show_reservations(int client_socket);
 
 // ============================================================================
 // UI UTILITY FUNCTIONS
@@ -40,6 +41,7 @@ void set_cap_films(int client_socket);
 void print_films(void);
 void print_rented_films(void);
 void print_expired_films(void);
+void print_reservations(void);
 void print_cart(void);
 void clear_screen(void);
 void show_main_view(void);

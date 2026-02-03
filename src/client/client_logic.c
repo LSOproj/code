@@ -245,3 +245,13 @@ void parse_film_ids_to_return(char *input, int *film_ids, int *count){
 		}
 	}
 }
+
+void convert_date_to_string(time_t timestamp, char *buffer, size_t buffer_size){
+	if(timestamp > 0){
+		struct tm *timeinfo = localtime(&timestamp);
+		strftime(buffer, buffer_size, "%d/%m/%Y %H:%M", timeinfo);
+	} else {
+		strncpy(buffer, "N/A", buffer_size - 1);
+		buffer[buffer_size - 1] = '\0';
+	}
+}

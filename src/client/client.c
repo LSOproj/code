@@ -212,6 +212,36 @@ void print_expired_films(){
 	}
 }
 
+void print_reservations(void){
+	printf("\n=== PRENOTAZIONI ===\n");
+	if(num_reservations == 0){
+		printf("Nessuna prenotazione presente.\n");
+		return;
+	}
+	printf("%-5s %-10s %-10s %-20s %-20s %-20s\n",
+			"ID", "User ID", "Film ID", "Data Noleggio", "Data Scadenza", "Data Riconsegna");
+	printf("----------------------------------------------------------------------------------------------------\n");
+	
+	char rental_date_str[20];
+	char expiring_date_str[20];
+	char due_date_str[20];
+	
+	for(int i = 0; i < num_reservations; i++){
+		convert_date_to_string(reservations[i].rental_date, rental_date_str, sizeof(rental_date_str));
+		convert_date_to_string(reservations[i].expiring_date, expiring_date_str, sizeof(expiring_date_str));
+		convert_date_to_string(reservations[i].due_date, due_date_str, sizeof(due_date_str));
+		
+		printf("%-5u %-10u %-10u %-20s %-20s %-20s\n",
+				reservations[i].id,
+				reservations[i].user_id,
+				reservations[i].film_id,
+				rental_date_str,
+				expiring_date_str,
+				due_date_str);
+	}
+	printf("\nTotale prenotazioni: %d\n", num_reservations);
+}
+
 // ============================================================================
 // MENU UI
 // ============================================================================
@@ -235,11 +265,13 @@ int renting_menu(){
 }
 
 int shopkeeper_menu_display(){
+	print_films();
 	printf("\n=== MENU NEGOZIANTE ===\n");
 	printf("Utente: %s\n", current_username);
 	printf("Max film noleggiabili (venditore): %d\n", cart_cap);
 	printf("1 - Invia notifica per film non restituiti\n");
-	printf("2 - Imposta limite del carrello\n");
+	printf("2 - Imposta limite film nolleggiabili\n");
+	printf("3 - Visualizza tutte le prenotazioni\n");
 	printf("0 - Esci\n");
 	return read_menu_choice("Inserire un numero per proseguire: ");
 }
@@ -592,6 +624,7 @@ void shopkeeper_menu(int client_socket){
 
 	while(1){
 		clear_screen();
+		
 		choice = shopkeeper_menu_display();
 
 		switch(choice){
@@ -601,6 +634,9 @@ void shopkeeper_menu(int client_socket){
 				break;
 			case 2:
 				set_cap_films(client_socket);
+				break;
+			case 3:
+				handle_show_reservations(client_socket);
 				break;
 			case 0:
 				printf("Arrivederci!\n");
@@ -644,6 +680,16 @@ void set_cap_films(int client_socket){
 
 	if(new_film_cap > 0)
 		cart_cap = new_film_cap;
+}
+
+void handle_show_reservations(int client_socket){
+	clear_screen();
+	printf("Caricamento prenotazioni...\n");
+	get_all_reservations(client_socket);
+	printf("Prenotazioni caricate: %d\n\n", num_reservations);
+	print_reservations();
+	printf("\nPremere INVIO per tornare al menu...\n");
+	getchar();
 }
 
 // ============================================================================

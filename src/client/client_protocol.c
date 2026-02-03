@@ -69,10 +69,12 @@ void get_all_reservations(int client_socket){
 		exit(-1);
 	}
 
-	if(read(client_socket, &num_reservations, sizeof(num_reservations))){
-		printf("[CLIENT] Errore nella ricezione del numerdo di film nolegiati.\n");
+	if(read(client_socket, &num_reservations, sizeof(num_reservations)) < 0){
+		printf("[CLIENT] Errore nella ricezione del numero di prenotazioni.\n");
 		exit(-1);
 	}
+
+	printf("[CLIENT] Ricevute %d prenotazioni dal server.\n", num_reservations);
 
 	for(int i = 0; i < num_reservations; i++){
 		if(read(client_socket, &(reservations[i].id), sizeof(reservations[i].id)) < 0){

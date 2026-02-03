@@ -52,5 +52,6 @@ int get_movie_idx_by_id(int movie_id);
 int get_cart_count_by_id(int movie_id);
 void parse_film_ids(char *input, int *film_ids, int *count);
 void parse_film_ids_to_return(char *input, int *film_ids, int *count);
+void convert_date_to_string(time_t timestamp, char *buffer, size_t buffer_size);
 
 #endif
