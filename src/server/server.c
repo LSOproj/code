@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <signal.h>
+#include <errno.h>
 
 #define MAX_CLIENTS 				50
 #define MAX_USERS 					100
@@ -1864,8 +1865,12 @@ int shopkeeper_notify_expired_films(unsigned int shopkeeper_id){
 	}
 
 	for(int i = 0; i < connection_list->dim; i++){
-		if(kill(connection_list->connections[i]->client_pid, SIGUSR1) < 0)
-			error_handler("[SERVER] Errore invio kill SIGUSR1");
+		if(kill(connection_list->connections[i]->client_pid, SIGUSR1) < 0){
+			//ESRCH = Il processo o gruppo di processi non esiste 
+			if (errno != ESRCH) {
+				error_handler("[SERVER] Errore invio kill SIGUSR1");
+			}
+		}
 	}
 
 	pthread_mutex_unlock(&connection_list->connections_mutex);

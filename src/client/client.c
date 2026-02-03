@@ -246,8 +246,13 @@ void rental_menu(int client_socket){
 		get_user_rented_films(client_socket);
 
 		if(film_reminder){
+			clear_screen();
 			get_all_user_expired_films_with_no_due_date(client_socket);
 			print_expired_films();
+
+			printf("\nPremere INVIO per tornare al menu...");
+			getchar();
+
 			film_reminder = 0;
 		}
 
@@ -632,3 +637,44 @@ void expired_films_signal_handler(int signum){
 		film_reminder = 1;
 	}
 }
+
+/*
+void get_all_user_expired_films_with_no_due_date(int client_socket){
+	char get_user_expired_films_with_no_due_date_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(get_user_expired_films_with_no_due_date_protocol_command, GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE);
+
+	if(write(client_socket, get_user_expired_films_with_no_due_date_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		printf("[CLIENT] Impossibile inviare il messaggio di protocollo\n");
+		exit(-1);
+	}
+
+	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
+		printf("[CLIENT] Impossibile inviare lo user_id dell'utente correntemente autenticato.\n");
+		exit(-1);
+	}
+
+	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		exit(-1);
+	}
+
+	if(read(client_socket, &num_expired_films, sizeof(num_expired_films)) < 0){
+		printf("[CLIENT] Errore nella ricezione del numero di film con data di scadenza passata e non restituiti ancora.\n");
+		exit(-1);
+	}
+
+	for(int i = 0; i < num_expired_films; i++){
+		if(read(client_socket, &expired_films[i].id, sizeof(expired_films[i].id)) < 0){
+			printf("[CLIENT] Errore nella ricezione del film id\n");
+			exit(-1);
+		}
+
+		if(read(client_socket, expired_films[i].title, MAX_FILM_TITLE_SIZE) < 0){
+			printf("[CLIENT] Errore nella ricezione del titolo film\n");
+				exit(-1);
+		}
+	}
+}
+*/

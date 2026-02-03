@@ -24,6 +24,9 @@ extern int cart_cap;
 extern int num_rented_films;
 extern film_t rented_films[MAX_FILMS];
 
+extern int num_expired_films;
+extern film_t expired_films[MAX_FILMS];
+
 // Function prototypes
 void init_cart(void);
 void add_to_cart(int movie_id);

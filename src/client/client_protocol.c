@@ -107,9 +107,6 @@ void get_all_user_expired_films_with_no_due_date(int client_socket){
 
 	char response[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
-	int num_expired_films;
-	film_t expired_films[MAX_FILMS];
-
 	if(read(client_socket, response, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 		perror("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
 		exit(-1);
