@@ -15,6 +15,15 @@ int get_movie_idx_by_id(int movie_id){
 	return -1;
 }
 
+int get_cart_count_by_id(int movie_id){
+	int count = 0;
+	for(int i = 0; i < cart.dim; i++){
+		if(cart.film_id_to_rent[i] == movie_id)
+			count++;
+	}
+	return count;
+}
+
 void parse_film_ids(char *input, int *film_ids, int *count){
 	*count = 0;
 	char temp[10];
@@ -24,8 +33,25 @@ void parse_film_ids(char *input, int *film_ids, int *count){
 		if(input[i] == ',' || input[i] == ' '){
 			if(temp_idx > 0){
 				temp[temp_idx] = '\0';
-				film_ids[*count] = atoi(temp);
-				(*count)++;
+				int movie_id = atoi(temp);
+				if(movie_id > 0){
+					// Validazione: film esiste?
+					int idx = get_movie_idx_by_id(movie_id);
+					if(idx < 0){
+						printf("ID %d non valido.\n", movie_id);
+					} else if(avaible_films[idx].available_copies <= 0){
+						printf("Non ci sono copie disponibili per '%s'.\n", avaible_films[idx].title);
+					} else {
+						// Film già nel carrello?
+						int in_cart = get_cart_count_by_id(movie_id);
+						if(in_cart > 0){
+							printf("Film '%s' è già nel carrello. Non è possibile aggiungere lo stesso film più volte.\n", avaible_films[idx].title);
+						} else {
+							film_ids[*count] = movie_id;
+							(*count)++;
+						}
+					}
+				}
 				temp_idx = 0;
 			}
 		} else {
@@ -34,8 +60,25 @@ void parse_film_ids(char *input, int *film_ids, int *count){
 	}
 	if(temp_idx > 0){
 		temp[temp_idx] = '\0';
-		film_ids[*count] = atoi(temp);
-		(*count)++;
+		int movie_id = atoi(temp);
+		if(movie_id > 0){
+			// Validazione: film esiste?
+			int idx = get_movie_idx_by_id(movie_id);
+			if(idx < 0){
+				printf("ID %d non valido.\n", movie_id);
+			} else if(avaible_films[idx].available_copies <= 0){
+				printf("Non ci sono copie disponibili per '%s'.\n", avaible_films[idx].title);
+			} else {
+				// Film già nel carrello?
+				int in_cart = get_cart_count_by_id(movie_id);
+				if(in_cart > 0){
+					printf("Film '%s' è già nel carrello. Non è possibile aggiungere lo stesso film più volte.\n", avaible_films[idx].title);
+				} else {
+					film_ids[*count] = movie_id;
+					(*count)++;
+				}
+			}
+		}
 	}
 }
 

@@ -290,15 +290,6 @@ void print_cart(void){
 	printf("Numero film nel carrello: %d/%d\n", cart.dim, cart_cap);
 }
 
-int get_cart_count_by_id(int movie_id){
-	int count = 0;
-	for(int i = 0; i < cart.dim; i++){
-		if(cart.film_id_to_rent[i] == movie_id)
-			count++;
-	}
-	return count;
-}
-
 void get_all_films(int client_socket){
 
 	char get_films_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
@@ -468,41 +459,16 @@ void rental_menu(int client_socket){
 					break;
 				}
 				
-				char *token = strtok(film_input, ",");
-				int found_any = 0;
-				while(token != NULL){
-					while(*token == ' ')
-						token++;
-					int movie_id = 0;
-					int parsed = sscanf(token, "%d", &movie_id);
-					if(parsed < 1 || movie_id <= 0){
-						token = strtok(NULL, ",");
-						continue;
+				int film_ids[5];
+				int count = 0;
+				parse_film_ids(film_input, film_ids, &count);
+				
+				if(count > 0){
+					for(int i = 0; i < count; i++){
+						int idx = get_movie_idx_by_id(film_ids[i]);
+						add_to_cart(film_ids[i]);
+						printf("Film '%s' aggiunto al carrello.\n", avaible_films[idx].title);
 					}
-					found_any = 1;
-					int idx = get_movie_idx_by_id(movie_id);
-					if(idx < 0){
-						printf("ID %d non valido.\n", movie_id);
-						token = strtok(NULL, ",");
-						continue;
-					}
-					int in_cart = get_cart_count_by_id(movie_id);
-					if(in_cart > 0){
-						printf("Film '%s' è già nel carrello. Non è possibile aggiungere lo stesso film più volte.\n", avaible_films[idx].title);
-						token = strtok(NULL, ",");
-						continue;
-					}
-					if(avaible_films[idx].available_copies <= 0){
-						printf("Non ci sono copie disponibili per '%s'.\n", avaible_films[idx].title);
-						token = strtok(NULL, ",");
-						continue;
-					}
-					add_to_cart(movie_id);
-					printf("Film '%s' aggiunto al carrello.\n", avaible_films[idx].title);
-					token = strtok(NULL, ",");
-				}
-				if(!found_any){
-					printf("Nessun ID inserito.\n");
 				}
 				sleep(3);
 				show_main_view();
@@ -749,7 +715,6 @@ void empty_out_cart(){
 		cart.film_id_to_rent[i] = 0;
 	}
 	cart.dim = 0;
-
 }
 
 void rent_film(int client_socket, int idx){
@@ -797,7 +762,6 @@ void proceed_to_checkout(int client_socket){
 		for(int i = 0; i < cart.dim; i++){
 			rent_film(client_socket, i);
 		}
-
 		empty_out_cart();
 
 	}else{
@@ -811,19 +775,6 @@ void check_rented_films(){
 	get_user_rented_films(client_socket);
 
 	print_rented_films();
-}
-
-//rimuovere film restituto da rented_films
-
-void remove_returned_film_from_memory(int id_film_to_remove){
-
-	int idx_film = get_movie_idx_by_id(id_film_to_remove);
-
-	for(int i = idx_film; i < num_rented_films; i++){
-		rented_films[i] = rented_films[i+1];
-	}
-
-	num_rented_films--;
 }
 
 void renturn_rented_film(int client_socket){
@@ -856,6 +807,4 @@ void renturn_rented_film(int client_socket){
 		sleep(2);
 		return;
 	}
-
-	remove_returned_film_from_memory(id_film_to_return);
 }
