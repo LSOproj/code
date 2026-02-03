@@ -3,6 +3,9 @@
 
 #define MAX_FILMS				100
 #define MAX_FILM_TITLE_SIZE		100
+#define MAX_RESERVATIONS		200
+
+#include <time.h>
 
 typedef struct film_t {
 	int id;
@@ -16,6 +19,17 @@ typedef struct cart_t {
 	int dim; //capped by seller
 } cart_t;
 
+typedef struct reservation_t {
+
+	unsigned int id;
+	time_t rental_date;
+	time_t expiring_date;
+	time_t due_date;
+	unsigned int user_id;
+	unsigned int film_id;
+
+} reservation_t; 
+
 // Global variables
 extern int num_films_avaible;
 extern film_t avaible_films[MAX_FILMS];
@@ -26,6 +40,9 @@ extern film_t rented_films[MAX_FILMS];
 
 extern int num_expired_films;
 extern film_t expired_films[MAX_FILMS];
+
+extern int num_reservations;
+extern reservation_t reservations[MAX_RESERVATIONS];
 
 // Function prototypes
 void init_cart(void);

@@ -12,6 +12,7 @@
 #include "client_protocol.h"
 #include "client_logic.h"
 
+
 // ============================================================================
 // GLOBAL VARIABLES
 // ============================================================================
@@ -30,6 +31,9 @@ film_t expired_films[MAX_FILMS];
 
 int num_rented_films;
 film_t rented_films[MAX_FILMS];
+
+int num_reservations;
+reservation_t reservations[MAX_RESERVATIONS];
 
 int cart_cap = 5;
 char current_username[MAX_USER_USERNAME_SIZE] = "Ospite";
@@ -250,7 +254,8 @@ void rental_menu(int client_socket){
 		get_all_films(client_socket);
 		get_user_rented_films(client_socket);
 
-		if(film_reminder){
+		// rimouovere la parte dopo && se in testing non va
+		if(film_reminder && (num_rented_films > 0)){
 			clear_screen();
 			get_all_user_expired_films_with_no_due_date(client_socket);
 			print_expired_films();
