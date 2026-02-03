@@ -550,6 +550,17 @@ void handle_show_rented(int client_socket){
 	getchar();
 }
 
+void remove_returned_film_from_memory(int id_film_to_remove){
+
+	int idx_film = get_movie_idx_by_id(id_film_to_remove);
+
+	for(int i = idx_film; i < num_rented_films; i++){
+		rented_films[i] = rented_films[i+1];
+	}
+
+	num_rented_films--;
+}
+
 void handle_return(int client_socket){
 	clear_screen();
 	print_rented_films();
@@ -590,8 +601,10 @@ void handle_return(int client_socket){
 		}
 		printf("Restituendo '%s' (ID: %d)...\n", film_title, film_ids[i]);
 		return_film(client_socket, film_ids[i]);
+
+		remove_returned_film_from_memory(film_ids[i]);
 	}
-	
+
 	printf("\n✓ Operazione completata!\n");
 	printf("\nPremere INVIO per tornare al menu principale...\n");
 	getchar();
