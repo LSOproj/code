@@ -11,6 +11,5 @@ server:
 client:
 	$(CC) $(CFLAGS) $(CLIENT_DIR)/client.c $(CLIENT_DIR)/client_logic.c $(CLIENT_DIR)/client_protocol.c -o $(CLIENT_DIR)/client
 
-# ho corretto il clear, prima cancellava i *.c ora è fixato. 
 clean:
 	rm -f $(SERVER_DIR)/server $(CLIENT_DIR)/client 
