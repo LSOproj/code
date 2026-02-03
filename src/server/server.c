@@ -943,18 +943,13 @@ void database_connection_init(sqlite3 **database){
 	char exe_path[MAX_PATH];
     char db_full_path[MAX_PATH];
 
-
-    //Prende come riferimento l'eseguibile""
     ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
     
     if (len != -1) {
         exe_path[len] = '\0';
-        //Ottiene la cartella dell'eseguibile
         char *dir = dirname(exe_path);
-        //Costruisce il percorso completo del database
         snprintf(db_full_path, sizeof(db_full_path), "%s/database.db", dir);
     } else {
-        // Fallback di emergenza se readlink fallisce
         strcpy(db_full_path, "database.db");
     }
 
