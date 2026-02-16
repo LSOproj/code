@@ -61,6 +61,9 @@ typedef struct user_t {
 // Global variables
 extern unsigned int user_id;
 
+//thread
+void* broadcast_thread_handler(void *arg);
+
 // Function prototypes
 void get_user_id(int client_socket);
 int check_server_response(int client_socket);

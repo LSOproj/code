@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-// #include <arpa/netdb.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
@@ -46,6 +45,7 @@
 #define GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE			"GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
+#define SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE			"SHOW_EXPIRED_FILMS_NOTIFICATION"
 
 //response
 #define SUCCESS_REGISTER										"SUCCESS_REGISTER"
@@ -59,6 +59,7 @@
 #define SUCCESS_GET_USER_EXIRED_FILMS_NO_DUE_DATE				"SUCCESS_GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS				"SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS					"SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
+#define SUCCESS_SHOW_EXPIRED_FILMS_NOTIFICATION					"SUCCESS_SHOW_EXPIRED_FILMS_NOTIFICATION"
 
 #define FAILED_USER_ALREADY_EXISTS								"FAILED_USER_ALREADY_EXISTS"
 #define FAILED_USER_DOESNT_EXISTS								"FAILED_USER_DOESNT_EXISTS"
@@ -76,6 +77,8 @@
 #define FAILED_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE			 	"FAILED_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE"
 
 #define FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE				"FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE"
+
+#define FAILED_SHOW_EXPIRED_FILMS_NOTIFICATION_ROLE				"FAILED_SHOW_EXPIRED_FILMS_NOTIFICATION_ROLE"
 
 #define PROTOCOL_MESSAGE_MAX_SIZE 								100
 
@@ -102,7 +105,7 @@ typedef enum server_error {
 } server_error_t;
 
 typedef struct connection_data {
-
+	
 	unsigned int user_id;
 	pthread_t server_thread_tid;
 	pid_t client_pid;
@@ -338,7 +341,7 @@ int main(){
 			error_handler("[SERVER] Errore accept socket");
 		}
 
-		printf("\n[SERVER] Ricevuta connessione di un client.\n");
+		printf("\n[SERVER] Ricevuta connessione di un client, assegnato al socket %d.\n", *client_socket);
 
 		pthread_t tid;
 		if(pthread_create(&tid, NULL, connection_handler, (void *)client_socket) < 0){
@@ -1964,11 +1967,9 @@ int shopkeeper_notify_expired_films(unsigned int shopkeeper_id){
 	}
 
 	for(int i = 0; i < connection_list->dim; i++){
-		if(kill(connection_list->connections[i]->client_pid, SIGUSR1) < 0){
-			//ESRCH = Il processo o gruppo di processi non esiste 
-			if (errno != ESRCH) {
-				error_handler("[SERVER] Errore invio kill SIGUSR1");
-			}
+		if(write(connection_list->connections[i]->client_socket_fd, SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+			close(connection_list->connections[i]->client_socket_fd);
+			error_handler("[SERVER] Errore scrittura SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE protocol message");
 		}
 	}
 

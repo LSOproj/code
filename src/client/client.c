@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-// #include <arpa/netdb.h>
 #include <fcntl.h>
 #include <signal.h>
 #include "client.h"
@@ -18,6 +18,8 @@
 // ============================================================================
 // GLOBAL VARIABLES
 // ============================================================================
+
+pthread_t tid;
 
 unsigned int user_id;
 int client_socket;
@@ -92,9 +94,10 @@ int main(){
 
 	printf("[CLIENT] Inviato pid %d al server.\n", client_pid);
 
-	signal(SIGUSR1, expired_films_signal_handler);
-
-	printf("[CLIENT] Registrata funzione signal handler per gestire i messaggi da parte del negoziante.\n");
+	if(pthread_create(&tid, NULL, broadcast_thread_handler, NULL) < 0){
+		printf("[CLIENT] Impossibile creare thread per ricezione notifiche.\n");
+		exit(-1);
+	}
 
 	while(1){	
 		clear_screen();
@@ -121,6 +124,27 @@ int main(){
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
+
+void* broadcast_thread_handler(void *arg){
+
+	pthread_detach(pthread_self());
+	free((void*) arg);
+
+	while(1){
+
+		char show_expired_films_notification_protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
+		if(read(client_socket, show_expired_films_notification_protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+			printf("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+			exit(-1);
+		}
+
+		if(strncmp(show_expired_films_notification_protocol_message, SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE, PROTOCOL_MESSAGE_MAX_SIZE) == 0){
+			printf("\n[NOTIFICA] Il negoziante ha notificato che alcuni dei tuoi film noleggiati sono scaduti!\n");
+			film_reminder = 1;
+		}
+	}
+}
 
 void clear_screen(){
 #ifdef _WIN32

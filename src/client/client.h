@@ -4,6 +4,16 @@
 #include <signal.h>
 
 // ============================================================================
+// SYNC VARIABLES (For threads)
+// ============================================================================
+extern pthread_mutex_t socket_mutex;
+extern pthread_cond_t response_cond;
+extern pthread_cond_t listener_resume_cond;
+extern char shared_server_response[PROTOCOL_MESSAGE_MAX_SIZE];
+extern int response_available;
+extern int listener_paused;
+
+// ============================================================================
 // SIGNAL HANDLERS
 // ============================================================================
 void expired_films_signal_handler(int signum);
