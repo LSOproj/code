@@ -4,7 +4,9 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/un.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+// #include <arpa/netdb.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
@@ -16,6 +18,7 @@
 #include <signal.h>
 #include <errno.h>
 
+#define SERVER_PORT 				5200
 #define MAX_CLIENTS 				50
 #define MAX_USERS 					100
 #define MAX_FILMS					100
@@ -39,7 +42,7 @@
 #define RENT_FILM_PROTOCOL_MESSAGE  								"RENT_FILM"
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE							"RETURN_RENTED_FILM"
 #define GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_USER_RENTED_FILMS"
-#define GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_MAX_RENTED_FILMS" //DA FARE SOLO SUL CLIENT
+#define GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_MAX_RENTED_FILMS"
 #define GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE			"GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
@@ -301,18 +304,18 @@ int main(){
 
 	printf("\n[SERVER] Account negoziante creato/recuperato dal database con successo.\n");
 
-	struct sockaddr_un server_address;
+	struct sockaddr_in server_address;
 	socklen_t server_address_len = sizeof(server_address);
 
-	server_address.sun_family = AF_LOCAL;
-	strcpy(server_address.sun_path, "/tmp/server_socket");
+	server_address.sin_family = AF_INET;
+	server_address.sin_port = htons(SERVER_PORT);
+	server_address.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if((server_socket = socket(PF_LOCAL, SOCK_STREAM, 0)) < 0)
+	if((server_socket = socket(PF_INET, SOCK_STREAM, 0)) < 0)
 		error_handler("[SERVER] Errore creazione socket");
 
 	printf("\n[SERVER] Successo socket create.\n");
 
-	unlink(server_address.sun_path);
 	if(bind(server_socket, (struct sockaddr *) &server_address, server_address_len) < 0)
 		error_handler("[SERVER] Errore bind socket");
 
@@ -346,7 +349,6 @@ int main(){
 
 	close(server_socket);
 	sqlite3_close(database);
-	unlink(server_address.sun_path);
 
 	return 0;
 }

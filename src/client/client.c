@@ -5,7 +5,9 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/un.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+// #include <arpa/netdb.h>
 #include <fcntl.h>
 #include <signal.h>
 #include "client.h"
@@ -43,15 +45,34 @@ char current_username[MAX_USER_USERNAME_SIZE] = "Ospite";
 // ============================================================================
 
 int main(){
-	struct sockaddr_un server_address;
+
+	const char *server_host = getenv("SERVER_HOST");
+
+	if (server_host == NULL) {
+        printf("[CLIENT] Variabile d'ambiente SERVER_HOST non definita, impostando host %s di default.\n", DEFAULT_SERVER_HOST);
+        server_host = DEFAULT_SERVER_HOST;
+    }
+
+	const char *server_port = getenv("SERVER_PORT");
+	
+	if (server_port == NULL) {
+        printf("[CLIENT] Variabile d'ambiente SERVER_PORT non definita, impostando porta %s di default\n", DEFAULT_SERVER_PORT);
+		server_port = DEFAULT_SERVER_PORT;
+	}
+
+	struct sockaddr_in server_address;
 	socklen_t server_address_len = sizeof(server_address);
+	memset(&server_address, 0, server_address_len);
 
-	server_address.sun_family = AF_LOCAL;
-	// /tmp/server_socket socket locale del server a cui
-	// il client si connette
-	strcpy(server_address.sun_path, "/tmp/server_socket");
+	server_address.sin_family = AF_INET;
+	server_address.sin_port = htons(atoi(server_port));
 
-	if((client_socket = socket(PF_LOCAL, SOCK_STREAM, 0)) < 0){
+	if(inet_aton(server_host, &server_address.sin_addr) == 0){
+		perror("[CLIENT] Indirizzo IP server non valido.\n");
+		exit(-1);
+	}
+
+	if((client_socket = socket(PF_INET, SOCK_STREAM, 0)) < 0){
 		perror("[CLIENT] Impossibile aprire la socket!\n");
 		exit(-1);
 	}
