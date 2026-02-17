@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <fcntl.h>
 #include "client.h"
 #include "client_protocol.h"
@@ -64,15 +65,21 @@ int main(){
 
 	struct sockaddr_in server_address;
 	socklen_t server_address_len = sizeof(server_address);
+
 	memset(&server_address, 0, server_address_len);
 
 	server_address.sin_family = AF_INET;
 	server_address.sin_port = htons(atoi(server_port));
 
-	if(inet_aton(server_host, &server_address.sin_addr) == 0){
-		perror("[CLIENT] Indirizzo IP server non valido.\n");
-		exit(-1);
-	}
+	struct hostent *server_host_info = gethostbyname(server_host);
+
+	if ((server_host_info = gethostbyname(server_host)) == NULL) {
+        printf("[CLIENT] Impossibile risolvere l'hostname: %s\n", server_host);
+        exit(-1);
+    }
+
+	// Copia l'indirizzo binario ottenuto direttamente nella struttura della socket
+	memcpy(&server_address.sin_addr, server_host_info->h_addr_list[0], server_host_info->h_length);
 
 	if((client_socket = socket(PF_INET, SOCK_STREAM, 0)) < 0){
 		perror("[CLIENT] Impossibile aprire la socket!\n");

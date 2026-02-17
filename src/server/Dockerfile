@@ -26,6 +26,8 @@ RUN mkdir -p src/server
 
 COPY --from=builder /build/server .
 
+COPY --from=builder /build/src/server/database.db ./src/server/database.db
+
 EXPOSE 5200
 
 CMD ["./server"]
