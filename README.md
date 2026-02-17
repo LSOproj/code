@@ -48,7 +48,7 @@ Per terminare l'applicazione:
 docker compose down
 ```
 
-# Credenziali del negoziante
+# Credenziali del negoziante
 Le credenziali del gestore della videoteca sono le seguenti:
 ```
 nome utente: "negoziante"
