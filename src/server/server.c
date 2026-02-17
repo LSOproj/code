@@ -365,7 +365,7 @@ int main(){
 //threads
 void* connection_handler(void* client_socket_arg){
 	
-	printf("\n[SERVER] Assegnato il thread %p al client.\n", pthread_self());
+	printf("\n[SERVER] Assegnato il thread %ld al client.\n", pthread_self());
 
 	pthread_detach(pthread_self());
 
