@@ -365,7 +365,7 @@ int main(){
 //threads
 void* connection_handler(void* client_socket_arg){
 	
-	printf("\n[SERVER] Assegnato il thread %d al client.\n", (int)pthread_self());
+	printf("\n[SERVER] Assegnato il thread %p al client.\n", pthread_self());
 
 	pthread_detach(pthread_self());
 
@@ -1960,8 +1960,11 @@ int shopkeeper_notify_expired_films(unsigned int shopkeeper_id){
 		return ERROR_SHOPKEEPER_NOTIFY_EXPIRED_FILMS_ROLE;
 	}
 
+	char show_expired_films_notification_protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+	strcpy(show_expired_films_notification_protocol_message, SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE);
+
 	for(int i = 0; i < connection_list->dim; i++){
-		if(write(connection_list->connections[i]->client_socket_fd, SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+		if(write(connection_list->connections[i]->client_socket_fd, show_expired_films_notification_protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 			close(connection_list->connections[i]->client_socket_fd);
 			error_handler("[SERVER] Errore scrittura SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE protocol message");
 		}
