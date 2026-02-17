@@ -9,7 +9,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <signal.h>
 #include "client.h"
 #include "client_protocol.h"
 #include "client_logic.h"
@@ -148,10 +147,11 @@ void* listener_thread(void *arg){
 
 		if(strncmp(buffer, SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE, PROTOCOL_MESSAGE_MAX_SIZE) == 0){
 
-            printf("\n[NOTIFICA] Il negoziante ha notificato che alcuni film sono scaduti!\n");
+            printf("\n[NOTIFICA] Il negoziante ha notificato che il noleggio di alcuni film in tuo possesso è scaduto! Verranno mostrati a schermo.\n");
             film_reminder = 1;
 
         } else {
+
             pthread_mutex_lock(&threads_sync->sync_mutex);
 
             strncpy(threads_sync->server_response, buffer, PROTOCOL_MESSAGE_MAX_SIZE);
@@ -776,12 +776,3 @@ void handle_show_reservations(int client_socket){
 	getchar();
 }
 
-// ============================================================================
-// SIGNAL HANDLERS
-// ============================================================================
-
-void expired_films_signal_handler(int signum){
-	if(signum == SIGUSR1){
-		film_reminder = 1;
-	}
-}

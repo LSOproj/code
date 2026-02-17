@@ -1,12 +1,37 @@
 services:
-  videorent:
-    build: .
-    image: videorent
-    container_name: videorent-client-server
+  server:
+    build:
+      context: .
+      dockerfile: src/server/Dockerfile
+    container_name: videorent-server
+    ports:
+      - "5200:5200"
+    volumes:
+      - videorent_database:/app/src/server
+    networks:
+      - videorent_network
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: src/client/Dockerfile
+    container_name: videorent-client
+    depends_on:
+      - server
+    environment:
+      - SERVER_HOST=server
+      - SERVER_PORT=5200
+    # Per l'input interattivo
     stdin_open: true
     tty: true
-    volumes:
-      - database_volume:/app/persisted_database
+    networks:
+      - videorent_network
+    # Ritardo per l'inizializzazione del server
+    command: sh -c "sleep 2 && ./client"
 
 volumes:
-  database_volume:
+  videorent_database:
+
+networks:
+  videorent_network:

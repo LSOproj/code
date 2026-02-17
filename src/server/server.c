@@ -2220,7 +2220,7 @@ void error_handler(char *message){
 }
 
 void handle_termination_signal(int sig) {
-    printf("\n[SERVER] Ricevuto segnale di interruzione (CTRL+C)...\n");
+    printf("\n[SERVER] Ricevuto segnale di interruzione...\n");
     
     if (database) {
         sqlite3_close(database);

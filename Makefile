@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall #abilita tutti i warning (opzionale solo per debug)
+CFLAGS = -Wall
 SERVER_DIR = src/server
 CLIENT_DIR = src/client
 

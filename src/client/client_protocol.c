@@ -52,11 +52,7 @@ void wait_for_server_protocol_message(int client_socket, char* buffer){
 
     strncpy(buffer, threads_sync->server_response, PROTOCOL_MESSAGE_MAX_SIZE);
     
-    // Resetta il flag (la cassetta è vuota)
     threads_sync->data_for_main_thread_ready = 0;
-
-    // NOTA: Non sblocchiamo ancora il listener (listener_paused resta 1).
-    // Lo faremo solo alla fine dell'operazione completa.
     
     pthread_mutex_unlock(&threads_sync->sync_mutex);
 
@@ -422,6 +418,7 @@ int check_server_response(int client_socket){
 }
 
 void rent_film(int client_socket, int idx){
+
 	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 	strcpy(protocol_message, RENT_FILM_PROTOCOL_MESSAGE);
 
@@ -434,6 +431,7 @@ void rent_film(int client_socket, int idx){
 		printf("[CLIENT] Impossibile inviare user_id.\n");
 		exit(-1);
 	}
+	
 	if(write(client_socket, &(cart.film_id_to_rent[idx]), sizeof(cart.film_id_to_rent[idx])) < 0){
 		printf("[CLIENT] Impossibile inviare l'id del film.\n");
 		exit(-1);
