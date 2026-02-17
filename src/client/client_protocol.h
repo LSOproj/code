@@ -19,6 +19,7 @@
 #define GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE			"GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
+#define SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE			"SHOW_EXPIRED_FILMS_NOTIFICATION"
 
 //response
 #define SUCCESS_REGISTER										"SUCCESS_REGISTER"
@@ -52,6 +53,21 @@
 
 #define PROTOCOL_MESSAGE_MAX_SIZE 								100
 
+//sincronizzazione tra thread che ascolta per la ricezione notifiche e main thread
+typedef struct threads_sync_t {
+    pthread_mutex_t sync_mutex;
+	pthread_cond_t wake_main_thread_cv;
+	pthread_cond_t wake_listener_thread_cv;
+
+	int data_for_main_thread_ready; //response_available
+	int listener_suspended; //listener_suspended
+
+	char server_response[PROTOCOL_MESSAGE_MAX_SIZE];
+	
+} threads_sync_t;
+
+extern threads_sync_t* threads_sync;
+
 typedef struct user_t {
 	int id;
 	char username[MAX_USER_USERNAME_SIZE];
@@ -62,7 +78,10 @@ typedef struct user_t {
 extern unsigned int user_id;
 
 //thread
-void* broadcast_thread_handler(void *arg);
+void* listener_thread(void *arg);
+threads_sync_t* init_threads_sync();
+void wait_for_server_protocol_message(int client_socket, char* buffer);
+void resume_listener_thread();
 
 // Function prototypes
 void get_user_id(int client_socket);

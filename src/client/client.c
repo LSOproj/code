@@ -20,6 +20,7 @@
 // ============================================================================
 
 pthread_t tid;
+threads_sync_t* threads_sync;
 
 unsigned int user_id;
 int client_socket;
@@ -86,6 +87,8 @@ int main(){
 
 	printf("[CLIENT] Client connesso con succeso al server!\n");
 
+	threads_sync = init_threads_sync();
+
 	pid_t client_pid = getpid();
 	if(write(client_socket, &client_pid, sizeof(client_pid)) < 0){
 		printf("[CLIENT] Impossibile inviare pid %d del processo al server.\n", client_pid);
@@ -94,7 +97,7 @@ int main(){
 
 	printf("[CLIENT] Inviato pid %d al server.\n", client_pid);
 
-	if(pthread_create(&tid, NULL, broadcast_thread_handler, NULL) < 0){
+	if(pthread_create(&tid, NULL, listener_thread, NULL) < 0){
 		printf("[CLIENT] Impossibile creare thread per ricezione notifiche.\n");
 		exit(-1);
 	}
@@ -118,6 +121,7 @@ int main(){
 		}
 	}
 
+	free(threads_sync);
 	return 0;
 }
 
@@ -125,24 +129,46 @@ int main(){
 // UTILITY FUNCTIONS
 // ============================================================================
 
-void* broadcast_thread_handler(void *arg){
+void* listener_thread(void *arg){
 
 	pthread_detach(pthread_self());
 	free((void*) arg);
 
+	char buffer[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+
 	while(1){
 
-		char show_expired_films_notification_protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
+		//pulizia buffer
+		memset(buffer, 0, PROTOCOL_MESSAGE_MAX_SIZE);
 
-		if(read(client_socket, show_expired_films_notification_protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-			printf("[CLIENT] Impossibile leggere il messaggio in arrivo\n");
+		if(read(client_socket, buffer, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
+			perror("[CLIENT] Errore lettura messaggio di protocollo in arrivo dal server.\n");
 			exit(-1);
 		}
 
-		if(strncmp(show_expired_films_notification_protocol_message, SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE, PROTOCOL_MESSAGE_MAX_SIZE) == 0){
-			printf("\n[NOTIFICA] Il negoziante ha notificato che alcuni dei tuoi film noleggiati sono scaduti!\n");
-			film_reminder = 1;
-		}
+		if(strncmp(buffer, SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE, PROTOCOL_MESSAGE_MAX_SIZE) == 0){
+
+            printf("\n[NOTIFICA] Il negoziante ha notificato che alcuni film sono scaduti!\n");
+            film_reminder = 1;
+
+        } else {
+            pthread_mutex_lock(&threads_sync->sync_mutex);
+
+            strncpy(threads_sync->server_response, buffer, PROTOCOL_MESSAGE_MAX_SIZE);
+            
+            threads_sync->data_for_main_thread_ready = 1;    
+            threads_sync->listener_suspended = 1;
+
+            //Viene riattivato il main thread
+            pthread_cond_signal(&threads_sync->wake_main_thread_cv);
+
+            //Attesa che il main thread abbia consumato i dati dalla socket, nel frattempo viene sospeso il thread listener
+            while(threads_sync->listener_suspended){
+                pthread_cond_wait(&threads_sync->wake_listener_thread_cv, &threads_sync->sync_mutex);
+            }
+
+            pthread_mutex_unlock(&threads_sync->sync_mutex);
+        }
 	}
 }
 

@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/socket.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -277,8 +278,13 @@ void* connection_handler(void* arg);
 //miscellous
 void error_handler(char *message);
 
+//safe database termination
+void handle_termination_signal(int signal);
+
 int main(){
-	
+
+	signal(SIGINT, handle_termination_signal);
+
 	int server_socket;
 
 	database_connection_init(&database);
@@ -985,26 +991,14 @@ reservation_list_t* init_reservation_list(){
 //creazione tabelle database
 void database_connection_init(sqlite3 **database){
 
-	char exe_path[MAX_PATH];
-    char db_full_path[MAX_PATH];
+	const char *path = "src/server/database.db";
 
-    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
-    
-    if (len != -1) {
-        exe_path[len] = '\0';
-        char *dir = dirname(exe_path);
-        snprintf(db_full_path, sizeof(db_full_path), "%s/database.db", dir);
-    } else {
-        strcpy(db_full_path, "database.db");
-    }
-
-    if (sqlite3_open(db_full_path, database) != SQLITE_OK) {
-        fprintf(stderr, "[SERVER] Errore critico apertura SQLite: %s\n", sqlite3_errmsg(*database));
+	if (sqlite3_open(path, database) != SQLITE_OK) {
+        fprintf(stderr, "[SERVER] Errore critico creazione/apertura database SQLite.\n");
         exit(-1);
     }
     
-    printf("[SERVER] Database aperto con successo in: %s\n", db_full_path);
-
+    printf("[SERVER] Database aperto con successo in: %s\n", path);
 }
 
 void database_user_table_init(sqlite3* database){
@@ -2223,4 +2217,16 @@ reservation_t* search_reservation_by_id(unsigned int reservation_id){
 void error_handler(char *message){
 	printf("\n%s.\n", message);
 	exit(-1);
+}
+
+void handle_termination_signal(int sig) {
+    printf("\n[SERVER] Ricevuto segnale di interruzione (CTRL+C)...\n");
+    
+    if (database) {
+        sqlite3_close(database);
+        printf("[SERVER] Database chiuso e salvato correttamente.\n");
+    }
+    
+    printf("[SERVER] Server terminato.\n");
+    exit(0);
 }
