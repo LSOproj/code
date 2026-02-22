@@ -274,6 +274,7 @@ void print_reservations(void){
 // ============================================================================
 
 int start_up_menu(void){
+	printf("=== BENVENUTO IN VIDEO NOLEGGIO ===\n");
 	printf("1 - Register\n2 - Login\n0 - Exit\n");
 	return read_menu_choice("Inserire un numero per proseguire: ");
 }
