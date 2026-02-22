@@ -6,7 +6,7 @@ INSERT INTO FILM (id, title, available_copies, rented_out_copies) VALUES
 (5, 'Povere Creature!', 6, 2),
 (6, 'Matrix', 10, 0),
 (7, 'Interstellar', 7, 3),
-(8, 'La Città Incantata', 4, 0),
+(8, 'La Citta Incantata', 4, 0),
 (9, 'Killers of the Flower Moon', 5, 1),
 (10, 'Il Signore degli Anelli', 12, 0),
 (11, 'Fight Club', 4, 2),
