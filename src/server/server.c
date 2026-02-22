@@ -640,14 +640,7 @@ void* connection_handler(void* client_socket_arg){
 
 			int result = send_all_reservations_to_client(client_socket, shopkeeper_id);
 
-			if(result > 0){
-
-				if(write(client_socket, success_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-					close(client_socket);
-					error_handler("[SERVER] Errore scrittura SUCCESS protocol message");
-				}
-
-			} else if (result == ERROR_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE){
+			if (result == ERROR_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE){
 
 				strcpy(error_message, FAILED_SHOPKEEPER_GET_ALL_RESERVATIONS_ROLE);
 
