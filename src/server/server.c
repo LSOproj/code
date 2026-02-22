@@ -1966,7 +1966,7 @@ int shopkeeper_notify_expired_films(unsigned int shopkeeper_id){
 	for(int i = 0; i < connection_list->dim; i++){
 		if(write(connection_list->connections[i]->client_socket_fd, show_expired_films_notification_protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
 			close(connection_list->connections[i]->client_socket_fd);
-			error_handler("[SERVER] Errore scrittura SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE protocol message");
+			printf("[SERVER] Impossibile scrivere SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE protocol message su client con pid %d, con socket %d chiusa\n", connection_list->connections[i]->client_pid, connection_list->connections[i]->client_socket_fd);
 		}
 	}
 
