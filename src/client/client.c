@@ -135,49 +135,6 @@ int main(){
 // UTILITY FUNCTIONS
 // ============================================================================
 
-void* listener_thread(void *arg){
-
-	pthread_detach(pthread_self());
-	free((void*) arg);
-
-	char buffer[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-
-	while(1){
-
-		//pulizia buffer
-		memset(buffer, 0, PROTOCOL_MESSAGE_MAX_SIZE);
-
-		if(read(client_socket, buffer, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-			perror("[CLIENT] Errore lettura messaggio di protocollo in arrivo dal server.\n");
-			exit(-1);
-		}
-
-		if(strncmp(buffer, SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE, PROTOCOL_MESSAGE_MAX_SIZE) == 0){
-
-		film_reminder = 1;
-
-        } else {
-
-            pthread_mutex_lock(&threads_sync->sync_mutex);
-
-            strncpy(threads_sync->server_response, buffer, PROTOCOL_MESSAGE_MAX_SIZE);
-            
-            threads_sync->data_for_main_thread_ready = 1;    
-            threads_sync->listener_suspended = 1;
-
-            //Viene riattivato il main thread
-            pthread_cond_signal(&threads_sync->wake_main_thread_cv);
-
-            //Attesa che il main thread abbia consumato i dati dalla socket, nel frattempo viene sospeso il thread listener
-            while(threads_sync->listener_suspended){
-                pthread_cond_wait(&threads_sync->wake_listener_thread_cv, &threads_sync->sync_mutex);
-            }
-
-            pthread_mutex_unlock(&threads_sync->sync_mutex);
-        }
-	}
-}
-
 void clear_screen(){
 #ifdef _WIN32
 	system("cls");

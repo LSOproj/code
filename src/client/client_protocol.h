@@ -76,6 +76,8 @@ typedef struct user_t {
 
 // Global variables
 extern unsigned int user_id;
+extern int client_socket;
+extern int film_reminder;
 
 //thread
 void* listener_thread(void *arg);
