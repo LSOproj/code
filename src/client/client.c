@@ -154,8 +154,7 @@ void* listener_thread(void *arg){
 
 		if(strncmp(buffer, SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE, PROTOCOL_MESSAGE_MAX_SIZE) == 0){
 
-            printf("\n[NOTIFICA] Il negoziante ha notificato che il noleggio di alcuni film in tuo possesso è scaduto! Verranno mostrati a schermo.\n");
-            film_reminder = 1;
+		film_reminder = 1;
 
         } else {
 
@@ -367,6 +366,7 @@ void rental_menu(int client_socket){
 		// rimouovere la parte dopo && se in testing non va
 		if(film_reminder && (num_rented_films > 0)){
 			clear_screen();
+			printf("\n[NOTIFICA] Il negoziante ha notificato che il noleggio di alcuni film in tuo possesso è scaduto! Verranno mostrati a schermo.\n\n");
 			get_all_user_expired_films_with_no_due_date(client_socket);
 			print_expired_films();
 

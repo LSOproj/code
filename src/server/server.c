@@ -315,7 +315,7 @@ int main(){
 
 	struct sockaddr_in server_address;
 	socklen_t server_address_len = sizeof(server_address);
-
+	
 	server_address.sin_family = AF_INET;
 	server_address.sin_port = htons(SERVER_PORT);
 	server_address.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -626,9 +626,6 @@ void* connection_handler(void* client_socket_arg){
 			send_all_user_expired_films_with_no_due_date(client_socket, user_id);
 
 		} else if (strncmp(protocol_message, SHOPKEEPER_GET_ALL_RESERVATIONS_PROTOCOL_MESSAGE, strlen(SHOPKEEPER_GET_ALL_RESERVATIONS_PROTOCOL_MESSAGE)) == 0){
-
-			char success_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-			strcpy(success_message, SUCCESS_SHOPKEEPER_GET_ALL_RESERVATIONS);
 
 			char error_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
 
