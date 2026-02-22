@@ -6,8 +6,9 @@
 #define MAX_USER_USERNAME_SIZE	100
 #define MAX_USER_PASSWORD_SIZE	100
 
-// Macro per il text protocol
-//requests
+// ============================================================================
+// TEXT PROTOCOL MACROS (REQUESTS)
+// ============================================================================
 #define REGISTER_PROTOCOL_MESSAGE 									"REGISTER"
 #define LOGIN_PROTOCOL_MESSAGE 										"LOGIN"
 #define GET_FILMS_PROTOCOL_MESSAGE  								"GET_FILMS"
@@ -16,12 +17,14 @@
 #define RETURN_RENTED_FILM_PROTOCOL_MESSAGE							"RETURN_RENTED_FILM"
 #define GET_USER_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_USER_RENTED_FILMS"
 #define GET_MAX_RENTED_FILMS_PROTOCOL_MESSAGE						"GET_MAX_RENTED_FILMS"
-#define GET_USER_EXIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE			"GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
+#define GET_USER_EXPIRED_FILMS_NO_DUE_DATE_PROTOCOL_MESSAGE			"GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SHOPKEEPER_NOTIFY_EXPIRED_FILMS_PROTOCOL_MESSAGE			"SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
 #define SHOW_EXPIRED_FILMS_NOTIFICATION_PROTOCOL_MESSAGE			"SHOW_EXPIRED_FILMS_NOTIFICATION"
 
-//response
+// ============================================================================
+// TEXT PROTOCOL MACROS (RESPONSES)
+// ============================================================================
 #define SUCCESS_REGISTER										"SUCCESS_REGISTER"
 #define SUCCESS_LOGIN											"SUCCESS_LOGIN"
 #define SUCCESS_GET_FILMS										"SUCCESS_GET_FILMS"
@@ -30,7 +33,7 @@
 #define SUCCESS_RETURN_RENTED_FILM								"SUCCESS_RETURN_RENTEND_FILM"
 #define SUCCESS_GET_USER_RENTED_FILMS							"SUCCESS_GET_USER_RENTED_FILMS"
 #define SUCCESS_GET_MAX_RENTED_FILMS							"SUCCESS_GET_MAX_RENTED_FILMS"
-#define SUCCESS_GET_USER_EXIRED_FILMS_NO_DUE_DATE				"SUCCESS_GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
+#define SUCCESS_GET_USER_EXPIRED_FILMS_NO_DUE_DATE				"SUCCESS_GET_USER_EXPIRED_FILMS_NO_DUE_DATE"
 #define SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS				"SUCCESS_SHOPKEEPER_CHANGE_MAX_RENTED_FILMS"
 #define SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS					"SUCCESS_SHOPKEEPER_NOTIFY_EXPIRED_FILMS"
 
@@ -54,6 +57,9 @@
 #define PROTOCOL_MESSAGE_MAX_SIZE 								100
 
 //sincronizzazione tra thread che ascolta per la ricezione notifiche e main thread
+// ===========================================================================
+// THREAD SYNCHRONIZATION DATA TYPE
+// ===========================================================================
 typedef struct threads_sync_t {
     pthread_mutex_t sync_mutex;
 	pthread_cond_t wake_main_thread_cv;
@@ -68,24 +74,35 @@ typedef struct threads_sync_t {
 
 extern threads_sync_t* threads_sync;
 
+// ============================================================================
+// DATA TYPES
+// ============================================================================
 typedef struct user_t {
 	int id;
 	char username[MAX_USER_USERNAME_SIZE];
 	char password[MAX_USER_PASSWORD_SIZE];
 } user_t;
 
-// Global variables
+// ============================================================================
+// GLOBAL VARIABLES
+// ============================================================================
 extern unsigned int user_id;
 extern int client_socket;
 extern int film_reminder;
 
-//thread
+// ============================================================================
+// THREAD FUNCTIONS
+// ============================================================================
 void* listener_thread(void *arg);
 threads_sync_t* init_threads_sync();
 void wait_for_server_protocol_message(int client_socket, char* buffer);
 void resume_listener_thread();
 
-// Function prototypes
+// ============================================================================
+// PROTOCOL I/O FUNCTION PROTOTYPES
+// ============================================================================
+int register_user_request(int client_socket, const char *username, const char *password);
+int login_user_request(int client_socket, const char *username, const char *password);
 void get_user_id(int client_socket);
 int check_server_response(int client_socket);
 void get_max_rented_films(int client_socket);
@@ -94,6 +111,7 @@ void get_all_reservations(int client);
 void get_user_rented_films(int client_socket);
 void get_all_user_expired_films_with_no_due_date(int client_socket);
 void shopkeeper_notify_expired_films(int client_socket);
+int shopkeeper_change_max_rented_films(int client_socket, int new_film_cap);
 void rent_film(int client_socket, int idx);
 void return_film(int client_socket, int film_id);
 

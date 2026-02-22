@@ -28,8 +28,8 @@ cart_t cart;
 
 int film_reminder = 0;
 
-int num_films_avaible;
-film_t avaible_films[MAX_FILMS];
+int num_films_available;
+film_t available_films[MAX_FILMS];
 
 int num_expired_films;
 film_t expired_films[MAX_FILMS];
@@ -91,7 +91,7 @@ int main(){
 		exit(-1);
 	}
 
-	printf("[CLIENT] Client connesso con succeso al server!\n");
+	printf("[CLIENT] Client connesso con successo al server!\n");
 
 	threads_sync = init_threads_sync();
 
@@ -171,12 +171,12 @@ void print_films(void){
 	printf("%-3s %-30s %15s %15s\n",
 			"ID", "Title", "Available", "Rented");
 	printf("-----------------------------------------------------------------------\n");
-	for(int i = 0; i < num_films_avaible; i++){
+	for(int i = 0; i < num_films_available; i++){
 		printf("%-3d %-30s %15d %15d\n",
-				avaible_films[i].id,
-				avaible_films[i].title,
-				avaible_films[i].available_copies,
-				avaible_films[i].rented_out_copies);
+				available_films[i].id,
+				available_films[i].title,
+				available_films[i].available_copies,
+				available_films[i].rented_out_copies);
 	}
 }
 
@@ -216,20 +216,13 @@ void print_cart(void){
 		int idx = get_movie_idx_by_id(movie_id);
 		int qty = get_cart_count_by_id(movie_id);
 		if(idx >= 0){
-			printf("%-3d %-30s %10d\n", avaible_films[idx].id, avaible_films[idx].title, qty);
+			printf("%-3d %-30s %10d\n", available_films[idx].id, available_films[idx].title, qty);
 		} else {
 			printf("%-3d %-30s %10d\n", movie_id, "(sconosciuto)", qty);
 		}
 		printed_ids[printed_count++] = movie_id;
 	}
 	printf("Numero film nel carrello: %d/%d\n", cart.dim, cart_cap);
-}
-
-void empty_out_cart(){
-	for(int i = 0; i < cart.dim; i++){
-		cart.film_id_to_rent[i] = 0;
-	}
-	cart.dim = 0;
 }
 
 void print_expired_films(){
@@ -304,7 +297,7 @@ int shopkeeper_menu_display(){
 	printf("Utente: %s\n", current_username);
 	printf("Max film noleggiabili (venditore): %d\n", cart_cap);
 	printf("1 - Invia notifica per film non restituiti\n");
-	printf("2 - Imposta limite film nolleggiabili\n");
+	printf("2 - Imposta limite film noleggiabili\n");
 	printf("3 - Visualizza tutte le prenotazioni\n");
 	printf("0 - Esci\n");
 	return read_menu_choice("Inserire un numero per proseguire: ");
@@ -320,7 +313,7 @@ void rental_menu(int client_socket){
 		get_all_films(client_socket);
 		get_user_rented_films(client_socket);
 
-		// rimouovere la parte dopo && se in testing non va
+		// rimuovere la parte dopo && se in testing non va
 		if(film_reminder && (num_rented_films > 0)){
 			clear_screen();
 			printf("\n[NOTIFICA] Il negoziante ha notificato che il noleggio di alcuni film in tuo possesso è scaduto! Verranno mostrati a schermo.\n\n");
@@ -382,25 +375,7 @@ void register_user(int client_socket){
 	printf("Inserire la password che si desidera usare: ");
 	scanf("%s", password);
 
-	char register_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-	strcpy(register_protocol_command, REGISTER_PROTOCOL_MESSAGE);
-
-	if(write(client_socket, register_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		printf("[CLIENT] Impossibile mandare il messaggio di protocollo %s\n", register_protocol_command);
-		exit(-1);
-	}
-
-	if(write(client_socket, username, MAX_USER_USERNAME_SIZE) < 0){
-		printf("[CLIENT] Impossibilile mandare il username\n");
-		exit(-1);
-	}
-
-	if(write(client_socket, password, MAX_USER_PASSWORD_SIZE) < 0){
-		printf("[CLIENT] Impossibilile mandare la password\n");
-		exit(-1);
-	}
-
-	check_server_response(client_socket);
+	register_user_request(client_socket, username, password);
 	sleep(2);
 	return;
 }
@@ -416,25 +391,7 @@ void login_user(int client_socket){
 	printf("Inserisci password: ");
 	scanf("%s", password);
 
-	char login_protocol_command[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-	strcpy(login_protocol_command, LOGIN_PROTOCOL_MESSAGE);
-
-	if(write(client_socket, login_protocol_command, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		printf("[CLIENT] Impossibile inviare il messaggio di protocollo %s\n", login_protocol_command);
-		exit(-1);
-	}
-
-	if(write(client_socket, username, MAX_USER_USERNAME_SIZE) < 0){
-		printf("[CLIENT] Impossibilile inviare il username\n");
-		exit(-1);
-	}
-
-	if(write(client_socket, password, MAX_USER_PASSWORD_SIZE) < 0){
-		printf("[CLIENT] Impossibilile inviare la password\n");
-		exit(-1);
-	}
-
-	if(check_server_response(client_socket) < 0){
+	if(login_user_request(client_socket, username, password) < 0){
 		sleep(2);
 		return;
 	}
@@ -488,7 +445,7 @@ void handle_add_films(void){
 		for(int i = 0; i < count; i++){
 			int idx = get_movie_idx_by_id(film_ids[i]);
 			add_to_cart(film_ids[i]);
-			printf("Film '%s' aggiunto al carrello.\n", avaible_films[idx].title);
+			printf("Film '%s' aggiunto al carrello.\n", available_films[idx].title);
 		}
 	}
 	sleep(3);
@@ -513,14 +470,13 @@ void handle_modify_cart(void){
 		if(sub_choice == 1){
 			if(cart.dim > 0){
 				printf("Inserire gli ID separati da virgola (es: 1,3,5)\n");
-				char report[512] = {0};
-				remove_from_cart(report, sizeof(report));
+				char remove_input[100] = {0};
+				scanf(" %99[^\n]", remove_input);
+				consume_stdin_line();
+				remove_from_cart(remove_input);
 				clear_screen();
 				printf("=== CARRELLO AGGIORNATO ===\n");
 				print_cart();
-				if(report[0] != '\0'){
-					printf("\nRimozioni:\n%s", report);
-				}
 			} else {
 				printf("Il carrello è vuoto.\n");
 			}
@@ -583,17 +539,6 @@ void handle_show_rented(int client_socket){
 	print_rented_films();
 	printf("\nPremere INVIO per tornare al menu...\n");
 	getchar();
-}
-
-void remove_returned_film_from_memory(int id_film_to_remove){
-
-	int idx_film = get_movie_idx_by_id(id_film_to_remove);
-
-	for(int i = idx_film; i < num_rented_films; i++){
-		rented_films[i] = rented_films[i+1];
-	}
-
-	num_rented_films--;
 }
 
 void handle_return(int client_socket){
@@ -671,6 +616,7 @@ void shopkeeper_menu(int client_socket){
 	int choice;
 
 	while(1){
+		get_all_films(client_socket);
 		clear_screen();
 		
 		choice = shopkeeper_menu_display();
@@ -703,26 +649,7 @@ void set_cap_films(int client_socket){
 	scanf("%d", &new_film_cap);
 	consume_stdin_line();
 
-	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE] = {0};
-	strcpy(protocol_message, SHOPKEEPER_CHANGE_MAX_RENTED_FILMS_PROTOCOL_MESSAGE);
-
-	if(write(client_socket, protocol_message, PROTOCOL_MESSAGE_MAX_SIZE) < 0){
-		printf("[CLIENT] Impossibile inviare il messaggio di protocollo.\n");
-		exit(-1);
-	}
-
-	if(write(client_socket, &user_id, sizeof(user_id)) < 0){
-		printf("[CLIENT] Impossibile inviare il messaggio di protocollo.\n");
-		exit(-1);
-	}
-
-	if(write(client_socket, &new_film_cap, sizeof(new_film_cap)) < 0){
-		printf("[CLIENT] Impossibile inviare il nuovo limite per i film.\n");
-		exit(-1);
-	}
-
-	if(check_server_response(client_socket) < 0){
-		sleep(2);
+	if(shopkeeper_change_max_rented_films(client_socket, new_film_cap) < 0){
 		return;
 	}
 

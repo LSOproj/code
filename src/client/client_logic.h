@@ -6,6 +6,11 @@
 #define MAX_RESERVATIONS		200
 
 #include <time.h>
+#include <stddef.h>
+
+// ============================================================================
+// DATA TYPES
+// ============================================================================
 
 typedef struct film_t {
 	int id;
@@ -30,9 +35,11 @@ typedef struct reservation_t {
 
 } reservation_t; 
 
-// Global variables
-extern int num_films_avaible;
-extern film_t avaible_films[MAX_FILMS];
+// ============================================================================
+// GLOBAL VARIABLES
+// ============================================================================
+extern int num_films_available;
+extern film_t available_films[MAX_FILMS];
 extern cart_t cart;
 extern int cart_cap;
 extern int num_rented_films;
@@ -44,14 +51,18 @@ extern film_t expired_films[MAX_FILMS];
 extern int num_reservations;
 extern reservation_t reservations[MAX_RESERVATIONS];
 
-// Function prototypes
+// ============================================================================
+// FUNCTION PROTOTYPES
+// ============================================================================
 void init_cart(void);
 void add_to_cart(int movie_id);
-void remove_from_cart(char *report, size_t report_size);
+void remove_from_cart(const char *user_input);
+void empty_out_cart(void);
+void remove_returned_film_from_memory(int id_film_to_remove);
 int get_movie_idx_by_id(int movie_id);
 int get_cart_count_by_id(int movie_id);
-void parse_film_ids(char *input, int *film_ids, int *count);
-void parse_film_ids_to_return(char *input, int *film_ids, int *count);
+void parse_film_ids(const char *user_input, int *film_ids, int *count);
+void parse_film_ids_to_return(const char *user_input, int *film_ids, int *count);
 void convert_date_to_string(time_t timestamp, char *buffer, size_t buffer_size);
 
 #endif
