@@ -59,8 +59,8 @@ typedef struct threads_sync_t {
 	pthread_cond_t wake_main_thread_cv;
 	pthread_cond_t wake_listener_thread_cv;
 
-	int data_for_main_thread_ready; //response_available
-	int listener_suspended; //listener_suspended
+	int data_for_main_thread_ready;
+	int listener_suspended;
 
 	char server_response[PROTOCOL_MESSAGE_MAX_SIZE];
 	
