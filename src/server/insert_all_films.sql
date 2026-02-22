@@ -13,4 +13,5 @@ INSERT INTO FILM (id, title, available_copies, rented_out_copies) VALUES
 (12, 'The Truman Show', 3, 0),
 (13, 'Joker', 6, 1),
 (14, 'Gladiatore', 5, 0),
-(15, 'Avengers: Endgame', 10, 1);
+(15, 'Avengers: Endgame', 10, 1),
+(16, 'Pulp Fiction', 1, 0);

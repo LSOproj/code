@@ -1074,7 +1074,7 @@ void database_reservation_table_init(sqlite3* database){
 		"id INTEGER PRIMARY KEY AUTOINCREMENT, "
 		"rental_date INTEGER NOT NULL, "
 		"expiring_date INTEGER NOT NULL, "
-		"due_date INTEGER, "
+		"due_date INTEGER DEFAULT 0, "
 		"user_id INTEGER NOT NULL, "
 		"film_id INTEGER NOT NULL, "
 		"FOREIGN KEY (user_id) REFERENCES USER(id), "
@@ -1350,7 +1350,16 @@ void database_film_remove_available_copy(sqlite3* database, unsigned int film_id
 int database_reservation_add_due_date(sqlite3* database, unsigned int user_id, unsigned int film_id, time_t *now_date) {
 	
 	sqlite3_stmt* prepared;
-	const char *statement_sql = "UPDATE RESERVATION SET due_date = ? WHERE user_id = ? AND film_id = ? RETURNING id;";
+	const char *statement_sql =
+		"UPDATE RESERVATION "
+		"SET due_date = ? "
+		"WHERE id = ("
+			"SELECT id FROM RESERVATION "
+			"WHERE user_id = ? AND film_id = ? AND due_date = 0 "
+			"ORDER BY rental_date DESC "
+			"LIMIT 1"
+		") "
+		"RETURNING id;";
 	
 	if(sqlite3_prepare_v2(database, statement_sql, -1, &prepared, NULL) != SQLITE_OK){
 		sqlite3_close(database);
@@ -1371,6 +1380,8 @@ int database_reservation_add_due_date(sqlite3* database, unsigned int user_id, u
 	if(step_result == SQLITE_ROW){
 		reservation_id = sqlite3_column_int(prepared, 0);
 		printf("\n[SERVER] Aggiunta alla RESERVATION(user_id=%u, film_id=%u) due_date = %lld.\n", user_id, film_id, (long long)*now_date);
+	} else if(step_result == SQLITE_DONE){
+		reservation_id = -1;
 	} else {
 		sqlite3_close(database);
 		error_handler("[SERVER] Errore aggiornamento RESERVATION table sqlite");
@@ -1926,11 +1937,28 @@ int return_rented_film(sqlite3* database, unsigned int user_id, unsigned int fil
 	pthread_mutex_lock(&film_list->films_mutex);
 	pthread_mutex_lock(&reservation_list->reservations_mutex);
 
+	if(!check_user_already_rent_film(user_id, film_id)){
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
+		pthread_mutex_unlock(&film_list->films_mutex);
+		return ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT;
+	}
+
 	if((check_film_rented_out_copies_less_than_or_equal_zero(film_id) == 1) || (check_film_rented_out_copies_less_than_or_equal_zero(film_id) == -1)){
 		pthread_mutex_unlock(&reservation_list->reservations_mutex);
 		pthread_mutex_unlock(&film_list->films_mutex);
 		return ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT;
 	}
+
+	time_t now_reservation_due_date;
+	int reservation_id = database_reservation_add_due_date(database, user_id, film_id, &now_reservation_due_date);
+
+	if(reservation_id < 0){
+		pthread_mutex_unlock(&reservation_list->reservations_mutex);
+		pthread_mutex_unlock(&film_list->films_mutex);
+		return ERROR_RETURN_RENTED_FILM_NO_AVIABLE_RENTED_OUT;
+	}
+	
+	update_reservation_due_date(reservation_id, now_reservation_due_date);
 
 	if (increment_film_available_copy_and_decrement_film_rented_out_copy(film_id) == NULL){
 		pthread_mutex_unlock(&reservation_list->reservations_mutex);
@@ -1940,11 +1968,6 @@ int return_rented_film(sqlite3* database, unsigned int user_id, unsigned int fil
 
 	database_film_remove_rented_out_copy(database, film_id);
 	database_film_add_available_copy(database, film_id);
-
-	time_t now_reservation_due_date;
-	int reservation_id = database_reservation_add_due_date(database, user_id, film_id, &now_reservation_due_date);
-	
-	update_reservation_due_date(reservation_id, now_reservation_due_date);
 
 	pthread_mutex_unlock(&reservation_list->reservations_mutex);
 	pthread_mutex_unlock(&film_list->films_mutex);

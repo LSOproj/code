@@ -314,8 +314,8 @@ void rental_menu(int client_socket){
 		get_all_films(client_socket);
 		get_user_rented_films(client_socket);
 
-		// rimuovere la parte dopo && se in testing non va
-		if(film_reminder && (num_rented_films > 0)){
+		// rimuovere la parte dopo && num_rented_films > 0 se in testing non va
+		if(film_reminder){
 			clear_screen();
 			printf("\n[NOTIFICA] Il negoziante ha notificato che il noleggio di alcuni film in tuo possesso è scaduto! Verranno mostrati a schermo.\n\n");
 			get_all_user_expired_films_with_no_due_date(client_socket);
@@ -581,9 +581,9 @@ void handle_return(int client_socket){
 			}
 		}
 		printf("Restituendo '%s' (ID: %d)...\n", film_title, film_ids[i]);
-		return_film(client_socket, film_ids[i]);
-
-		remove_returned_film_from_memory(film_ids[i]);
+		if(return_film(client_socket, film_ids[i]) == 0){
+			remove_returned_film_from_memory(film_ids[i]);
+		}
 	}
 
 	printf("\n✓ Operazione completata!\n");

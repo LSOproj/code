@@ -113,6 +113,6 @@ void get_all_user_expired_films_with_no_due_date(int client_socket);
 void shopkeeper_notify_expired_films(int client_socket);
 int shopkeeper_change_max_rented_films(int client_socket, int new_film_cap);
 void rent_film(int client_socket, int idx);
-void return_film(int client_socket, int film_id);
+int return_film(int client_socket, int film_id);
 
 #endif

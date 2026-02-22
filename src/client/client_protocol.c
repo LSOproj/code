@@ -530,7 +530,7 @@ void rent_film(int client_socket, int idx){
 	}
 }
 
-void return_film(int client_socket, int film_id){
+int return_film(int client_socket, int film_id){
 	char protocol_message[PROTOCOL_MESSAGE_MAX_SIZE];
 	strcpy(protocol_message, RETURN_RENTED_FILM_PROTOCOL_MESSAGE);
 	
@@ -551,7 +551,10 @@ void return_film(int client_socket, int film_id){
 
 	if(check_server_response(client_socket) < 0){
 		sleep(2);
+		return -1;
 	}
+
+	return 0;
 }
 
 void shopkeeper_notify_expired_films(int client_socket){
